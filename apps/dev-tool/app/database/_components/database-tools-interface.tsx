@@ -44,7 +44,7 @@ export function DatabaseToolsInterface({
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6 px-4 py-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -52,6 +52,7 @@ export function DatabaseToolsInterface({
             <DatabaseIcon className="h-6 w-6" />
             <h1 className="text-2xl font-bold">Database Tools</h1>
           </div>
+
           <p className="text-muted-foreground">
             Explore database schemas, tables, functions, and enums
           </p>

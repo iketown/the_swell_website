@@ -7,7 +7,7 @@ export function DevToolLayout(props: React.PropsWithChildren) {
     <SidebarProvider>
       <DevToolSidebar />
 
-      <SidebarInset className="px-4">{props.children}</SidebarInset>
+      <SidebarInset>{props.children}</SidebarInset>
     </SidebarProvider>
   );
 }

@@ -26,15 +26,14 @@ export default function VariablesPage({ searchParams }: VariablesPageProps) {
   return (
     <Page style={'custom'}>
       <div className={'flex h-screen flex-col overflow-hidden'}>
-        <PageHeader
-          displaySidebarTrigger={false}
-          title={'Environment Variables'}
-          description={
-            'Manage environment variables for your applications. Validate and set them up easily.'
-          }
-        />
-
         <PageBody className={'overflow-hidden'}>
+          <PageHeader
+            title={'Environment Variables'}
+            description={
+              'Manage environment variables for your applications. Validate and set them up easily.'
+            }
+          />
+
           <div className={'flex h-full flex-1 flex-col space-y-4'}>
             {apps.map((app) => (
               <AppEnvironmentVariablesManager key={app.appName} state={app} />

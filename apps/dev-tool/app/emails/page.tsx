@@ -29,13 +29,12 @@ export default async function EmailsPage() {
 
   return (
     <Page style={'custom'}>
-      <PageHeader
-        displaySidebarTrigger={false}
-        title="Emails"
-        description={'Manage your application Email templates'}
-      />
-
       <PageBody className={'gap-y-8'}>
+        <PageHeader
+          title="Emails"
+          description={'Manage your application Email templates'}
+        />
+
         {categories.map((category) => {
           const categoryTemplates = templates.filter(
             (t) => t.category === category,

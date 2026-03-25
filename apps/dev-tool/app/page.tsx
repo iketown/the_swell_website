@@ -36,12 +36,12 @@ export default async function DashboardPage() {
 
   return (
     <Page style={'custom'}>
-      <PageHeader
-        title={'Dev Tool'}
-        description={'Kit MCP status for this workspace'}
-      />
+      <PageBody className={'space-y-4'}>
+        <PageHeader
+          title={'Dev Tool'}
+          description={'Kit MCP status for this workspace'}
+        />
 
-      <PageBody className={'space-y-8 py-2'}>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <ServiceCard
             name={'Variant'}

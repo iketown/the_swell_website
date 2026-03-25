@@ -54,15 +54,14 @@ export default async function EmailPage(props: EmailPageProps) {
 
   return (
     <Page style={'custom'}>
-      <PageHeader
-        displaySidebarTrigger={false}
-        title={values[id] ?? id}
-        description={<AppBreadcrumbs values={values} />}
-      >
-        <EnvModeSelector mode={mode} />
-      </PageHeader>
-
       <PageBody className={'flex flex-1 flex-col gap-y-4'}>
+        <PageHeader
+          title={values[id] ?? id}
+          description={<AppBreadcrumbs values={values} />}
+        >
+          <EnvModeSelector mode={mode} />
+        </PageHeader>
+
         <p className={'text-muted-foreground py-1 text-xs'}>
           Remember that the below is an approximation of the email. Always test
           it in your inbox.{' '}

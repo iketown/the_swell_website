@@ -15,15 +15,14 @@ export default async function TranslationsPage() {
 
   return (
     <Page style={'custom'}>
-      <PageHeader
-        displaySidebarTrigger={false}
-        title={'Translations'}
-        description={
-          'Compare translations across different languages. Ensure consistency and accuracy in your translations.'
-        }
-      />
+      <PageBody>
+        <PageHeader
+          title={'Translations'}
+          description={
+            'Compare translations across different languages. Ensure consistency and accuracy in your translations.'
+          }
+        />
 
-      <PageBody className={'py-4'}>
         <TranslationsComparison translations={translations} />
       </PageBody>
     </Page>

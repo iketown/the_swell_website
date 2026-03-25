@@ -11,7 +11,6 @@ import {
   Edit,
   FileText,
   Folder,
-  Github,
   Image,
   Keyboard,
   LogOut,
@@ -114,7 +113,8 @@ const examples = [
                 <AvatarFallback>JD</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
+
+            <DropdownMenuContent className="w-56" align="end">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm leading-none font-medium">John Doe</p>
@@ -123,6 +123,7 @@ const examples = [
                   </p>
                 </div>
               </DropdownMenuLabel>
+
               <DropdownMenuSeparator />
 
               <DropdownMenuGroup>
@@ -365,7 +366,6 @@ const examples = [
               <DropdownMenuSeparator />
 
               <DropdownMenuItem>
-                <Github className="mr-2 h-4 w-4" />
                 <span>Import from GitHub</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

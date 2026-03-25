@@ -1,34 +1,34 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 
-import Link from "next/link";
+import Link from 'next/link';
 
-import { ArrowRight, CheckCircle } from "lucide-react";
-import { useTranslations } from "next-intl";
-import * as z from "zod";
+import { ArrowRight, CheckCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as z from 'zod';
 
 import {
   BillingConfig,
   type LineItemSchema,
   getPlanIntervals,
   getPrimaryLineItem,
-} from "@kit/billing";
-import { Badge } from "@kit/ui/badge";
-import { Button } from "@kit/ui/button";
-import { If } from "@kit/ui/if";
-import { Trans } from "@kit/ui/trans";
-import { cn } from "@kit/ui/utils";
+} from '@kit/billing';
+import { Badge } from '@kit/ui/badge';
+import { Button } from '@kit/ui/button';
+import { If } from '@kit/ui/if';
+import { Trans } from '@kit/ui/trans';
+import { cn } from '@kit/ui/utils';
 
-import { LineItemDetails } from "./line-item-details";
-import { PlanCostDisplay } from "./plan-cost-display";
+import { LineItemDetails } from './line-item-details';
+import { PlanCostDisplay } from './plan-cost-display';
 
 interface Paths {
   signUp: string;
   return: string;
 }
 
-type Interval = "month" | "year";
+type Interval = 'month' | 'year';
 
 export function PricingTable({
   config,
@@ -57,8 +57,8 @@ export function PricingTable({
   const visibleProducts = config.products.filter((product) => !product.hidden);
 
   return (
-    <div className={"flex flex-col space-y-8 xl:space-y-12"}>
-      <div className={"flex justify-center"}>
+    <div className={'flex flex-col space-y-8 xl:space-y-12'}>
+      <div className={'flex justify-center'}>
         {intervals.length > 1 ? (
           <PlanIntervalSwitcher
             intervals={intervals}
@@ -70,13 +70,13 @@ export function PricingTable({
 
       <div
         className={
-          "flex flex-col items-start space-y-6 lg:space-y-0" +
-          " justify-center lg:flex-row lg:gap-x-2.5"
+          'flex flex-col items-start space-y-6 lg:space-y-0' +
+          ' justify-center lg:flex-row lg:gap-x-2.5'
         }
       >
         {visibleProducts.map((product) => {
           const plan = product.plans.find((plan) => {
-            if (plan.paymentType === "recurring") {
+            if (plan.paymentType === 'recurring') {
               return plan.interval === interval;
             }
 
@@ -159,7 +159,7 @@ function PricingItem(
   const lineItem = props.primaryLineItem!;
   const isCustom = props.plan.custom ?? false;
 
-  const i18nKey = lineItem?.unit ? `billing.units.${lineItem.unit}` : "";
+  const i18nKey = lineItem?.unit ? `billing.units.${lineItem.unit}` : '';
 
   const unitLabel = lineItem?.unit
     ? t.has(i18nKey)
@@ -168,31 +168,31 @@ function PricingItem(
           defaultValue: lineItem.unit,
         } as never)
       : lineItem.unit
-    : "";
+    : '';
 
-  const isDefaultSeatUnit = lineItem?.unit === "member";
+  const isDefaultSeatUnit = lineItem?.unit === 'member';
 
   // we exclude flat line items from the details since
   // it doesn't need further explanation
   const lineItemsToDisplay = props.plan.lineItems.filter((item) => {
-    return item.type !== "flat";
+    return item.type !== 'flat';
   });
 
   const interval = props.plan.interval as Interval;
 
   return (
     <div
-      data-cy={"subscription-plan"}
+      data-cy={'subscription-plan'}
       className={cn(
         props.className,
         `s-full bg-muted/50 relative flex flex-1 grow flex-col items-stretch justify-between self-stretch rounded px-6 py-5 lg:w-4/12 xl:max-w-[20rem]`,
       )}
     >
       <If condition={props.product.badge}>
-        <div className={"absolute -top-2.5 left-0 flex w-full justify-center"}>
+        <div className={'absolute -top-2.5 left-0 flex w-full justify-center'}>
           <Badge
-            className={highlighted ? "" : "bg-muted"}
-            variant={highlighted ? "default" : "outline"}
+            className={highlighted ? '' : 'bg-muted'}
+            variant={highlighted ? 'default' : 'outline'}
           >
             <span>
               <Trans
@@ -204,12 +204,12 @@ function PricingItem(
         </div>
       </If>
 
-      <div className={"flex flex-col gap-y-4"}>
-        <div className={"flex flex-col"}>
-          <div className={"flex items-center space-x-6"}>
+      <div className={'flex flex-col gap-y-4'}>
+        <div className={'flex flex-col'}>
+          <div className={'flex items-center space-x-6'}>
             <b
               className={
-                "text-secondary-foreground font-heading text-xl font-medium tracking-tight text-orange-800"
+                'text-secondary-foreground font-heading text-xl font-medium tracking-tight text-orange-800'
               }
             >
               <Trans
@@ -229,9 +229,9 @@ function PricingItem(
           </span>
         </div>
 
-        <div className={"h-px w-full border border-dashed"} />
+        <div className={'h-px w-full border border-dashed'} />
 
-        <div className={"flex flex-col gap-y-1"}>
+        <div className={'flex flex-col gap-y-1'}>
           <Price
             isMonthlyPrice={props.alwaysDisplayMonthlyPrice}
             displayBillingPeriod={!props.plan.label}
@@ -260,7 +260,7 @@ function PricingItem(
               <span>
                 <If
                   condition={props.plan.interval}
-                  fallback={<Trans i18nKey={"billing.lifetime"} />}
+                  fallback={<Trans i18nKey={'billing.lifetime'} />}
                 >
                   {(interval) => (
                     <Trans i18nKey={`billing.billingInterval.${interval}`} />
@@ -268,7 +268,7 @@ function PricingItem(
                 </If>
               </span>
 
-              <If condition={lineItem && lineItem?.type !== "flat"}>
+              <If condition={lineItem && lineItem?.type !== 'flat'}>
                 <span>/</span>
 
                 <span
@@ -276,13 +276,13 @@ function PricingItem(
                     `animate-in slide-in-from-left-4 fade-in text-xs capitalize`,
                   )}
                 >
-                  <If condition={lineItem?.type === "per_seat"}>
+                  <If condition={lineItem?.type === 'per_seat'}>
                     <If
                       condition={Boolean(lineItem?.unit) && !isDefaultSeatUnit}
-                      fallback={<Trans i18nKey={"billing.perTeamMember"} />}
+                      fallback={<Trans i18nKey={'billing.perTeamMember'} />}
                     >
                       <Trans
-                        i18nKey={"billing.perUnitShort"}
+                        i18nKey={'billing.perUnitShort'}
                         values={{
                           unit: unitLabel,
                         }}
@@ -291,10 +291,10 @@ function PricingItem(
                   </If>
 
                   <If
-                    condition={lineItem?.type !== "per_seat" && lineItem?.unit}
+                    condition={lineItem?.type !== 'per_seat' && lineItem?.unit}
                   >
                     <Trans
-                      i18nKey={"billing.perUnit"}
+                      i18nKey={'billing.perUnit'}
                       values={{
                         unit: lineItem?.unit,
                       }}
@@ -329,9 +329,9 @@ function PricingItem(
           </If>
         </If>
 
-        <div className={"h-px w-full border border-dashed"} />
+        <div className={'h-px w-full border border-dashed'} />
 
-        <div className={"flex flex-col"}>
+        <div className={'flex flex-col'}>
           <FeaturesList
             highlighted={highlighted}
             features={props.product.features}
@@ -339,11 +339,11 @@ function PricingItem(
         </div>
 
         <If condition={props.displayPlanDetails && lineItemsToDisplay.length}>
-          <div className={"h-px w-full border border-dashed"} />
+          <div className={'h-px w-full border border-dashed'} />
 
-          <div className={"flex flex-col space-y-2"}>
-            <h6 className={"text-sm font-semibold"}>
-              <Trans i18nKey={"billing.detailsLabel"} />
+          <div className={'flex flex-col space-y-2'}>
+            <h6 className={'text-sm font-semibold'}>
+              <Trans i18nKey={'billing.detailsLabel'} />
             </h6>
 
             <LineItemDetails
@@ -366,7 +366,7 @@ function FeaturesList(
   }>,
 ) {
   return (
-    <ul className={"flex flex-col gap-1"}>
+    <ul className={'flex flex-col gap-1'}>
       {props.features.map((feature) => {
         return (
           <ListItem highlighted={props.highlighted} key={feature}>
@@ -392,17 +392,17 @@ function Price({
     >
       <span
         className={
-          "font-heading flex items-center text-4xl font-medium tracking-tighter"
+          'font-heading flex items-center text-4xl font-medium tracking-tighter'
         }
       >
         {children}
       </span>
 
       <If condition={isMonthlyPrice && displayBillingPeriod}>
-        <span className={"text-muted-foreground text-sm leading-loose"}>
+        <span className={'text-muted-foreground text-sm leading-loose'}>
           <span>/</span>
 
-          <Trans i18nKey={"billing.perMonth"} />
+          <Trans i18nKey={'billing.perMonth'} />
         </span>
       </If>
     </div>
@@ -416,18 +416,18 @@ function ListItem({
   highlighted: boolean;
 }>) {
   return (
-    <li className={"flex items-center gap-x-2"}>
+    <li className={'flex items-center gap-x-2'}>
       <CheckCircle
-        className={cn("h-3.5 min-h-3.5 w-3.5 min-w-3.5", {
-          "text-secondary-foreground": highlighted,
-          "text-muted-foreground": !highlighted,
+        className={cn('h-3.5 min-h-3.5 w-3.5 min-w-3.5', {
+          'text-secondary-foreground': highlighted,
+          'text-muted-foreground': !highlighted,
         })}
       />
 
       <span
-        className={cn("text-sm", {
-          "text-muted-foreground": !highlighted,
-          "text-secondary-foreground": highlighted,
+        className={cn('text-sm', {
+          'text-muted-foreground': !highlighted,
+          'text-secondary-foreground': highlighted,
         })}
       >
         {children}
@@ -446,40 +446,40 @@ function PlanIntervalSwitcher(
   return (
     <div
       className={
-        "hover:border-border border-border/50 flex gap-x-0 rounded-full border"
+        'hover:border-border border-border/50 flex gap-x-0 rounded-full border'
       }
     >
       {props.intervals.map((plan, index) => {
         const selected = plan === props.interval;
 
         const className = cn(
-          "animate-in fade-in rounded-full transition-all focus:!ring-0",
+          'animate-in fade-in rounded-full transition-all focus:!ring-0',
           {
-            "border-r-transparent": index === 0,
-            ["hover:text-primary text-muted-foreground"]: !selected,
-            ["cursor-default"]: selected,
+            'border-r-transparent': index === 0,
+            ['hover:text-primary text-muted-foreground']: !selected,
+            ['cursor-default']: selected,
           },
         );
 
         return (
           <Button
-            size={"sm"}
+            size={'sm'}
             key={plan}
-            variant={selected ? "secondary" : "custom"}
+            variant={selected ? 'secondary' : 'custom'}
             className={className}
             onClick={() => props.setInterval(plan)}
           >
-            <span className={"flex items-center"}>
+            <span className={'flex items-center'}>
               <CheckCircle
                 className={cn(
-                  "animate-in fade-in zoom-in-50 mr-1 size-3 duration-200",
+                  'animate-in fade-in zoom-in-50 mr-1 size-3 duration-200',
                   {
                     hidden: !selected,
                   },
                 )}
               />
 
-              <span className={"text-xs capitalize"}>
+              <span className={'text-xs capitalize'}>
                 <Trans i18nKey={`billing.billingInterval.${plan}`} />
               </span>
             </span>
@@ -516,22 +516,22 @@ function DefaultCheckoutButton(
   const searchParams = new URLSearchParams({
     next: props.paths.return,
     plan: props.plan.id,
-    redirectToCheckout: props.redirectToCheckout ? "true" : "false",
+    redirectToCheckout: props.redirectToCheckout ? 'true' : 'false',
   });
 
   const linkHref =
     props.plan.href ?? `${signUpPath}?${searchParams.toString()}`;
 
-  const label = props.plan.buttonLabel ?? "common.getStartedWithPlan";
+  const label = props.plan.buttonLabel ?? 'common.getStartedWithPlan';
 
   return (
-    <Link className={"w-full"} href={linkHref}>
+    <Link className={'w-full'} href={linkHref}>
       <Button
-        size={"lg"}
-        className={"h-12 w-full rounded-lg"}
-        variant={props.highlighted ? "default" : "secondary"}
+        size={'lg'}
+        className={'h-12 w-full rounded-lg'}
+        variant={props.highlighted ? 'default' : 'secondary'}
       >
-        <span className={"text-base font-medium tracking-tight"}>
+        <span className={'text-base font-medium tracking-tight'}>
           <Trans
             i18nKey={label}
             defaults={label}
@@ -543,7 +543,7 @@ function DefaultCheckoutButton(
           />
         </span>
 
-        <ArrowRight className={"ml-2 h-4"} />
+        <ArrowRight className={'ml-2 h-4'} />
       </Button>
     </Link>
   );
