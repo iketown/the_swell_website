@@ -127,7 +127,7 @@ export function PasswordSignInForm({
             </span>
           </If>
 
-          <If condition={captchaLoading}>
+          <If condition={captchaLoading && !redirecting}>
             <span className={'animate-in fade-in slide-in-from-bottom-24'}>
               <Trans i18nKey={'auth.verifyingCaptcha'} />
             </span>
