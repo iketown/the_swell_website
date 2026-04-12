@@ -13,6 +13,9 @@ import { getSupabaseClientKeys } from '../get-supabase-client-keys';
 export function getSupabaseServerClient<GenericSchema = Database>() {
   const keys = getSupabaseClientKeys();
 
+  // Mark every consumer as request-bound as soon as the server client is created.
+  void cookies();
+
   return createServerClient<GenericSchema>(keys.url, keys.publicKey, {
     cookies: {
       async getAll() {
