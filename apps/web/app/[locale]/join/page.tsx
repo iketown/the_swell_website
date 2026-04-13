@@ -90,7 +90,7 @@ async function JoinTeamAccountPage(props: JoinTeamAccountPageProps) {
 
   // the invitation is not found or expired or the email is not the same as the user's email (case insensitive)
   const isInvitationValid =
-    invitation.email.toLowerCase() === auth.data.email.toLowerCase();
+    invitation.email.toLowerCase() === auth.data.email?.toLowerCase();
 
   if (!isInvitationValid) {
     return (

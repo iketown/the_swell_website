@@ -75,7 +75,7 @@ export function PersonalAccountDropdown({
     personalAccountData?.name ?? account?.name ?? user?.email ?? '';
 
   const isSuperAdmin = useMemo(() => {
-    const hasAdminRole = user?.app_metadata.role === 'super-admin';
+    const hasAdminRole = user?.is_superadmin;
     const isAal2 = user?.aal === 'aal2';
 
     return hasAdminRole && isAal2;

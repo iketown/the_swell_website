@@ -89,9 +89,13 @@ export function LinkAccountsList(props: LinkAccountsListProps) {
 
   const amr = user.data ? user.data.amr : [];
 
-  const isConnectedWithPassword = amr.some(
-    (item: { method: string }) => item.method === 'password',
-  );
+  const isConnectedWithPassword = (amr || []).some((item) => {
+    if (typeof item === 'string') {
+      return item === 'password';
+    }
+
+    return item.method === 'password';
+  });
 
   // Show all connected identities, even if their provider isn't in the allowed providers list
   const connectedIdentities = identities;

@@ -182,6 +182,10 @@ export const acceptInvitationAction = authActionClient
     // use admin client to accept invitation
     const adminClient = getSupabaseServerAdminClient();
 
+    if (!user.email) {
+      throw new Error('User has not set up a valid email');
+    }
+
     // Accept the invitation
     const accountId = await service.acceptInvitationToTeam(adminClient, {
       inviteToken,

@@ -82,9 +82,6 @@ export function WorkspaceDropdown({
   const displayName = personalAccountData?.name ?? user.email ?? '';
   const userEmail = user.email ?? '';
 
-  const isSuperAdmin =
-    user.app_metadata.role === 'super-admin' && user.aal === 'aal2';
-
   const currentTeam = accounts.find((a) => a.value === selectedAccount);
 
   const currentLabel = isTeamContext
@@ -317,7 +314,7 @@ export function WorkspaceDropdown({
             }
           />
 
-          <If condition={isSuperAdmin}>
+          <If condition={user.is_superadmin}>
             <DropdownMenuItem
               render={
                 <Link

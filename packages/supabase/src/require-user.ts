@@ -1,31 +1,10 @@
-import type { AMREntry, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { checkRequiresMultiFactorAuthentication } from './check-requires-mfa';
 import { JWTUserData } from './types';
 
 const MULTI_FACTOR_AUTH_VERIFY_PATH = '/auth/verify';
 const SIGN_IN_PATH = '/auth/sign-in';
-
-/**
- * @name UserClaims
- * @description The user claims returned from the Supabase auth API.
- */
-type UserClaims = {
-  aud: string;
-  exp: number;
-  iat: number;
-  iss: string;
-  sub: string;
-  email: string;
-  phone: string;
-  app_metadata: Record<string, unknown>;
-  user_metadata: Record<string, unknown>;
-  role: string;
-  aal: `aal1` | `aal2`;
-  session_id: string;
-  is_anonymous: boolean;
-  amr: AMREntry[];
-};
 
 /**
  * @name requireUser
@@ -85,20 +64,18 @@ export async function requireUser(
     }
   }
 
-  // the client doesn't type the claims, so we need to cast it to the User type
-  const user = data.claims as UserClaims;
+  const role = data.claims.app_metadata?.role;
 
   return {
     error: null,
     data: {
-      is_anonymous: user.is_anonymous,
-      aal: user.aal,
-      email: user.email,
-      phone: user.phone,
-      app_metadata: user.app_metadata,
-      user_metadata: user.user_metadata,
-      id: user.sub,
-      amr: user.amr,
+      is_anonymous: data.claims.is_anonymous || false,
+      aal: data.claims.aal,
+      email: data.claims.email,
+      phone: data.claims.phone,
+      is_superadmin: role === 'super-admin' && data.claims.aal === 'aal2',
+      id: data.claims.sub,
+      amr: data.claims.amr,
     },
   };
 }

@@ -7,10 +7,9 @@ import type { AMREntry } from '@supabase/supabase-js';
 export type JWTUserData = {
   is_anonymous: boolean;
   aal: `aal1` | `aal2`;
-  email: string;
-  phone: string;
-  app_metadata: Record<string, unknown>;
-  user_metadata: Record<string, unknown>;
+  email: string | undefined;
+  phone: string | undefined;
+  is_superadmin: boolean;
   id: string;
-  amr: AMREntry[];
+  amr: AMREntry[] | string[] | undefined;
 };
