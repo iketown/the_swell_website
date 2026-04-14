@@ -60,5 +60,6 @@
     "build",
     ".next",
     "next-env.d.ts",
+    "*.html",
   ],
 }
