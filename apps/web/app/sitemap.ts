@@ -1,27 +1,14 @@
-import { getServerSideSitemap } from 'next-sitemap';
+import { MetadataRoute } from 'next';
 
 import { createCmsClient } from '@kit/cms';
 
 import appConfig from '~/config/app.config';
 
-/**
- * @description The maximum age of the sitemap in seconds.
- * This is used to set the cache-control header for the sitemap. The cache-control header is used to control how long the sitemap is cached.
- * By default, the cache-control header is set to 'public, max-age=600, s-maxage=3600'.
- * This means that the sitemap will be cached for 600 seconds (10 minutes) and will be considered stale after 3600 seconds (1 hour).
- */
-const MAX_AGE = 60;
-const S_MAX_AGE = 3600;
-
-export async function GET() {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const paths = getPaths();
   const contentItems = await getContentItems();
 
-  const headers = {
-    'Cache-Control': `public, max-age=${MAX_AGE}, s-maxage=${S_MAX_AGE}`,
-  };
-
-  return getServerSideSitemap([...paths, ...contentItems], headers);
+  return transformSitemapEntries([...paths, ...contentItems]);
 }
 
 function getPaths() {
@@ -30,6 +17,7 @@ function getPaths() {
     '/faq',
     '/blog',
     '/docs',
+    '/changelog',
     '/pricing',
     '/contact',
     '/cookie-policy',
@@ -40,8 +28,10 @@ function getPaths() {
 
   return paths.map((path) => {
     return {
+      priority: path === '/' ? 1 : 0.8,
       loc: new URL(path, appConfig.url).href,
       lastmod: new Date().toISOString(),
+      changeFrequency: 'always' as const,
     };
   });
 }
@@ -51,6 +41,7 @@ async function getContentItems() {
 
   // do not paginate the content items
   const limit = Infinity;
+
   const posts = client
     .getContentItems({
       collection: 'posts',
@@ -64,6 +55,8 @@ async function getContentItems() {
         lastmod: post.publishedAt
           ? new Date(post.publishedAt).toISOString()
           : new Date().toISOString(),
+        priority: 0.8,
+        changeFrequency: 'always' as const,
       })),
     );
 
@@ -80,8 +73,53 @@ async function getContentItems() {
         lastmod: doc.publishedAt
           ? new Date(doc.publishedAt).toISOString()
           : new Date().toISOString(),
+        priority: 0.8,
+        changeFrequency: 'always' as const,
       })),
     );
 
-  return Promise.all([posts, docs]).then((items) => items.flat());
+  const changelog = client
+    .getContentItems({
+      collection: 'changelog',
+      content: false,
+      limit,
+    })
+    .then((response) => response.items)
+    .then((docs) =>
+      docs.map((doc) => ({
+        loc: new URL(`/changelog/${doc.slug}`, appConfig.url).href,
+        lastmod: doc.publishedAt
+          ? new Date(doc.publishedAt).toISOString()
+          : new Date().toISOString(),
+        priority: 0.5,
+        changeFrequency: 'weekly' as const,
+      })),
+    );
+
+  return Promise.all([posts, docs, changelog]).then((items) => items.flat());
+}
+
+function transformSitemapEntries(
+  entries: {
+    loc: string;
+    lastmod: string;
+    priority: number;
+    changeFrequency:
+      | 'always'
+      | 'hourly'
+      | 'daily'
+      | 'weekly'
+      | 'monthly'
+      | 'yearly'
+      | 'never';
+  }[],
+): MetadataRoute.Sitemap {
+  return entries.map((entry) => {
+    return {
+      url: entry.loc,
+      lastModified: entry.lastmod,
+      priority: entry.priority,
+      changeFrequency: entry.changeFrequency,
+    };
+  });
 }
