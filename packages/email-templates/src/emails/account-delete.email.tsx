@@ -1,12 +1,4 @@
-import {
-  Body,
-  Head,
-  Html,
-  Preview,
-  Tailwind,
-  Text,
-  render,
-} from '@react-email/components';
+import { Body, Head, Html, Preview, Tailwind, Text, render } from 'react-email';
 
 import { BodyStyle } from '../components/body-style';
 import { EmailContent } from '../components/content';

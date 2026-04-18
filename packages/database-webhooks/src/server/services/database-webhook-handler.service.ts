@@ -30,7 +30,7 @@ class DatabaseWebhookHandlerService {
    * @param params
    */
   async handleWebhook(params: {
-    body: RecordChange<keyof Tables>;
+    payload: string;
     signature: string;
     handleEvent?<Table extends keyof Tables>(
       payload: Table extends keyof Tables
@@ -39,12 +39,8 @@ class DatabaseWebhookHandlerService {
     ): unknown;
   }) {
     const logger = await getLogger();
-    const { table, type } = params.body;
-
     const ctx = {
       name: this.namespace,
-      table,
-      type,
     };
 
     logger.info(ctx, 'Received webhook from DB. Processing...');
@@ -53,6 +49,13 @@ class DatabaseWebhookHandlerService {
     const verifier = await getDatabaseWebhookVerifier();
 
     await verifier.verifySignatureOrThrow(params.signature);
+
+    const body = JSON.parse(params.payload) as RecordChange<keyof Tables>;
+    const webhookCtx = {
+      ...ctx,
+      table: body.table,
+      type: body.type,
+    };
 
     // all good, we can now the webhook
 
@@ -63,19 +66,19 @@ class DatabaseWebhookHandlerService {
 
     try {
       // handle the webhook event based on the table
-      await service.handleWebhook(params.body);
+      await service.handleWebhook(body);
 
       // if a custom handler is provided, call it
       if (params?.handleEvent) {
         /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-        await params.handleEvent(params.body as any);
+        await params.handleEvent(body as any);
       }
 
-      logger.info(ctx, 'Webhook processed successfully');
+      logger.info(webhookCtx, 'Webhook processed successfully');
     } catch (error) {
       logger.error(
         {
-          ...ctx,
+          ...webhookCtx,
           error,
         },
         'Failed to process webhook',

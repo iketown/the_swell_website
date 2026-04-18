@@ -12,7 +12,7 @@ import {
   Tailwind,
   Text,
   render,
-} from '@react-email/components';
+} from 'react-email';
 
 import { BodyStyle } from '../components/body-style';
 import { EmailContent } from '../components/content';

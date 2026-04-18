@@ -1,4 +1,4 @@
-import { Container, Text } from '@react-email/components';
+import { Container, Text } from 'react-email';
 
 export function EmailFooter(props: React.PropsWithChildren) {
   return (

@@ -43,7 +43,7 @@ class OtpEmailService {
     });
 
     try {
-      logger.info({ otp }, 'Sending OTP email...');
+      logger.info({ email }, 'Sending OTP email...');
 
       await mailer.sendEmail({
         to: email,
@@ -52,9 +52,9 @@ class OtpEmailService {
         from: EMAIL_SENDER,
       });
 
-      logger.info({ otp }, 'OTP email sent');
+      logger.info({ email }, 'OTP email sent');
     } catch (error) {
-      logger.error({ otp, error }, 'Error sending OTP email');
+      logger.error({ email, error }, 'Error sending OTP email');
 
       throw error;
     }

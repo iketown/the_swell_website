@@ -7,6 +7,7 @@ import * as z from 'zod';
 
 import { authActionClient } from '@kit/next/safe-action';
 import { getLogger } from '@kit/shared/logger';
+import { getSafeRedirectPath } from '@kit/shared/utils';
 import { Database } from '@kit/supabase/database';
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
@@ -174,6 +175,7 @@ export const acceptInvitationAction = authActionClient
     const client = getSupabaseServerClient();
 
     const { inviteToken, nextPath } = data;
+    const safeNextPath = getSafeRedirectPath(nextPath, '/home');
 
     // create the services
     const perSeatBillingService = createAccountPerSeatBillingService(client);
@@ -201,7 +203,7 @@ export const acceptInvitationAction = authActionClient
     // Increase the seats for the account
     await perSeatBillingService.increaseSeats(accountId);
 
-    redirect(nextPath);
+    redirect(safeNextPath);
   });
 
 /**

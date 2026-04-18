@@ -18,7 +18,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@react-email/components": "catalog:"
+    "react-email": "catalog:"
   },
   "devDependencies": {
     "@kit/tsconfig": "workspace:*",

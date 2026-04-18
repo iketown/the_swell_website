@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   const ctx = {
     name: 'join.accept',
-    inviteToken,
+    inviteTokenFingerprint: getSecretFingerprint(inviteToken),
   };
 
   // Validate invite token is provided
@@ -64,7 +64,6 @@ export async function GET(request: NextRequest) {
       {
         ...ctx,
         invitationId: invitation.id,
-        email: invitation.email,
       },
       'Valid invitation found. Generating auth link...',
     );
@@ -81,7 +80,6 @@ export async function GET(request: NextRequest) {
       {
         ...ctx,
         emailLinkType,
-        email: invitation.email,
       },
       'Determined email link type for invitation',
     );
@@ -190,4 +188,16 @@ function redirectToError(message: string): NextResponse {
   errorUrl.searchParams.set('error', message);
 
   return NextResponse.redirect(errorUrl);
+}
+
+function getSecretFingerprint(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  if (value.length <= 8) {
+    return '[redacted]';
+  }
+
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }

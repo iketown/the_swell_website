@@ -1,4 +1,4 @@
-import { Container } from '@react-email/components';
+import { Container } from 'react-email';
 
 export function EmailWrapper(
   props: React.PropsWithChildren<{

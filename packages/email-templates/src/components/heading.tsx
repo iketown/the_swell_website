@@ -1,4 +1,4 @@
-import { Heading } from '@react-email/components';
+import { Heading } from 'react-email';
 
 export function EmailHeading(props: React.PropsWithChildren) {
   return (

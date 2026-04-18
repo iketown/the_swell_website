@@ -17,11 +17,11 @@ export const POST = enhanceRouteHandler(
         return new Response('Missing signature', { status: 400 });
       }
 
-      const body = await request.clone().json();
+      const payload = await request.text();
 
       // handle the webhook event
       await service.handleWebhook({
-        body,
+        payload,
         signature,
       });
 
