@@ -9,9 +9,13 @@ import { cn } from '@kit/ui/utils';
 
 import { CoverImage } from '../../blog/_components/cover-image';
 import { DateFormatter } from '../../blog/_components/date-formatter';
+import { sanitizeCmsExcerptHtml } from '~/lib/sanitize-cms-html';
 
 export function ChangelogHeader({ entry }: { entry: Cms.ContentItem }) {
   const { title, publishedAt, description, image } = entry;
+  const sanitizedDescription = description
+    ? sanitizeCmsExcerptHtml(description)
+    : null;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -42,7 +46,7 @@ export function ChangelogHeader({ entry }: { entry: Cms.ContentItem }) {
           {description && (
             <h2
               className="text-muted-foreground text-base"
-              dangerouslySetInnerHTML={{ __html: description }}
+              dangerouslySetInnerHTML={{ __html: sanitizedDescription ?? '' }}
             />
           )}
         </div>

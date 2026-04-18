@@ -5,6 +5,7 @@ import { If } from '@kit/ui/if';
 
 import { CoverImage } from '~/(marketing)/blog/_components/cover-image';
 import { DateFormatter } from '~/(marketing)/blog/_components/date-formatter';
+import { sanitizeCmsExcerptHtml } from '~/lib/sanitize-cms-html';
 
 type Props = {
   post: Cms.ContentItem;
@@ -21,6 +22,9 @@ export function PostPreview({
 }: React.PropsWithChildren<Props>) {
   const { title, image, publishedAt, description } = post;
   const height = imageHeight ?? DEFAULT_IMAGE_HEIGHT;
+  const sanitizedDescription = description
+    ? sanitizeCmsExcerptHtml(description)
+    : null;
 
   const slug = `/blog/${post.slug}`;
 
@@ -56,13 +60,9 @@ export function PostPreview({
 
         <p
           className="text-muted-foreground mb-4 text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: trimText(description ?? '', 200) }}
+          dangerouslySetInnerHTML={{ __html: sanitizedDescription ?? '' }}
         />
       </div>
     </Link>
   );
-}
-
-function trimText(text: string, maxLength: number) {
-  return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
 }

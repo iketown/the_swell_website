@@ -4,9 +4,13 @@ import { cn } from '@kit/ui/utils';
 
 import { CoverImage } from './cover-image';
 import { DateFormatter } from './date-formatter';
+import { sanitizeCmsExcerptHtml } from '~/lib/sanitize-cms-html';
 
 export function PostHeader({ post }: { post: Cms.ContentItem }) {
   const { title, publishedAt, description, image } = post;
+  const sanitizedDescription = description
+    ? sanitizeCmsExcerptHtml(description)
+    : null;
 
   return (
     <div className={'flex flex-1 flex-col'}>
@@ -28,7 +32,7 @@ export function PostHeader({ post }: { post: Cms.ContentItem }) {
 
           <h2
             className={'text-muted-foreground text-base'}
-            dangerouslySetInnerHTML={{ __html: description ?? '' }}
+            dangerouslySetInnerHTML={{ __html: sanitizedDescription ?? '' }}
           ></h2>
         </div>
       </div>
