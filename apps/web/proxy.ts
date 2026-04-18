@@ -40,7 +40,7 @@ export default async function proxy(request: NextRequest) {
   setRequestId(request);
 
   // handle patterns for specific routes
-  const handlePattern = await matchUrlPattern(request.url);
+  const handlePattern = await matchUrlPattern(request);
 
   // if a pattern handler exists, call it
   if (handlePattern) {
@@ -76,12 +76,6 @@ function isServerAction(request: NextRequest) {
 }
 
 async function adminMiddleware(request: NextRequest, response: NextResponse) {
-  const isAdminPath = request.nextUrl.pathname.startsWith('/admin');
-
-  if (!isAdminPath) {
-    return;
-  }
-
   const { data, error } = await getUser(request, response);
 
   // If user is not logged in, redirect to sign in page.
@@ -124,6 +118,7 @@ async function getPatterns() {
       pattern: new URLPattern({ pathname: '/auth/*?' }),
       handler: async (req: NextRequest, res: NextResponse) => {
         const { data } = await getUser(req, res);
+        const normalizedPathname = getNormalizedPathname(req.nextUrl.pathname);
 
         // the user is logged out, so we don't need to do anything
         if (!data?.claims) {
@@ -131,7 +126,7 @@ async function getPatterns() {
         }
 
         // check if we need to verify MFA (user is authenticated but needs to verify MFA)
-        const isVerifyMfa = req.nextUrl.pathname === pathsConfig.auth.verifyMfa;
+        const isVerifyMfa = normalizedPathname === pathsConfig.auth.verifyMfa;
 
         // If user is logged in and does not need to verify MFA,
         // redirect to home page.
@@ -179,11 +174,11 @@ async function getPatterns() {
 
 /**
  * Match URL patterns to specific handlers.
- * @param url
+ * @param request
  */
-async function matchUrlPattern(url: string) {
+async function matchUrlPattern(request: NextRequest) {
   const patterns = await getPatterns();
-  const input = url.split('?')[0];
+  const input = getNormalizedPathname(request.nextUrl.pathname);
 
   for (const pattern of patterns) {
     const patternResult = pattern.pattern.exec(input);
@@ -192,6 +187,30 @@ async function matchUrlPattern(url: string) {
       return pattern.handler;
     }
   }
+}
+
+function getNormalizedPathname(pathname: string) {
+  const localePrefix = getLocalePrefix(pathname);
+
+  if (!localePrefix) {
+    return pathname;
+  }
+
+  const normalizedPathname = pathname.slice(localePrefix.length);
+
+  return normalizedPathname || '/';
+}
+
+function getLocalePrefix(pathname: string) {
+  for (const locale of routing.locales) {
+    const prefix = `/${locale}`;
+
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
+      return prefix;
+    }
+  }
+
+  return null;
 }
 
 /**
