@@ -6,10 +6,10 @@ import { CoverImage } from './cover-image';
 import { DateFormatter } from './date-formatter';
 import { sanitizeCmsExcerptHtml } from '~/lib/sanitize-cms-html';
 
-export function PostHeader({ post }: { post: Cms.ContentItem }) {
+export async function PostHeader({ post }: { post: Cms.ContentItem }) {
   const { title, publishedAt, description, image } = post;
   const sanitizedDescription = description
-    ? sanitizeCmsExcerptHtml(description)
+    ? await sanitizeCmsExcerptHtml(description)
     : null;
 
   return (

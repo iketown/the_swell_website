@@ -11,10 +11,10 @@ import { CoverImage } from '../../blog/_components/cover-image';
 import { DateFormatter } from '../../blog/_components/date-formatter';
 import { sanitizeCmsExcerptHtml } from '~/lib/sanitize-cms-html';
 
-export function ChangelogHeader({ entry }: { entry: Cms.ContentItem }) {
+export async function ChangelogHeader({ entry }: { entry: Cms.ContentItem }) {
   const { title, publishedAt, description, image } = entry;
   const sanitizedDescription = description
-    ? sanitizeCmsExcerptHtml(description)
+    ? await sanitizeCmsExcerptHtml(description)
     : null;
 
   return (

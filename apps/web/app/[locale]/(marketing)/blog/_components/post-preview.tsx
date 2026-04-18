@@ -15,7 +15,7 @@ type Props = {
 
 const DEFAULT_IMAGE_HEIGHT = 220;
 
-export function PostPreview({
+export async function PostPreview({
   post,
   preloadImage,
   imageHeight,
@@ -23,7 +23,7 @@ export function PostPreview({
   const { title, image, publishedAt, description } = post;
   const height = imageHeight ?? DEFAULT_IMAGE_HEIGHT;
   const sanitizedDescription = description
-    ? sanitizeCmsExcerptHtml(description)
+    ? await sanitizeCmsExcerptHtml(description)
     : null;
 
   const slug = `/blog/${post.slug}`;

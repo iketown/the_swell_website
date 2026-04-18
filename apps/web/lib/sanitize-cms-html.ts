@@ -1,5 +1,3 @@
-import { sanitize } from 'isomorphic-dompurify';
-
 const CMS_EXCERPT_ALLOWED_TAGS = [
   'a',
   'br',
@@ -10,11 +8,16 @@ const CMS_EXCERPT_ALLOWED_TAGS = [
   'strong',
   'ul',
 ];
-const CMS_EXCERPT_ALLOWED_ATTR = ['href', 'rel', 'target'];
 
-export function sanitizeCmsExcerptHtml(html: string) {
-  return sanitize(html, {
-    ALLOWED_TAGS: CMS_EXCERPT_ALLOWED_TAGS,
-    ALLOWED_ATTR: CMS_EXCERPT_ALLOWED_ATTR,
+const CMS_EXCERPT_ALLOWED_ATTR: Record<string, string[]> = {
+  a: ['href', 'rel', 'target'],
+};
+
+export async function sanitizeCmsExcerptHtml(html: string) {
+  const { default: sanitizeHtml } = await import('sanitize-html');
+
+  return sanitizeHtml(html, {
+    allowedTags: CMS_EXCERPT_ALLOWED_TAGS,
+    allowedAttributes: CMS_EXCERPT_ALLOWED_ATTR,
   });
 }
