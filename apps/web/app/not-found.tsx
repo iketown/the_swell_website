@@ -21,13 +21,13 @@ const NotFoundPage = async () => {
   const theme = await getRootTheme();
   const cookieStore = await cookies();
   const locale = cookieStore.get('lang')?.value || routing.defaultLocale;
-  const messages = await getMessages({ locale });
+  const { common } = await getMessages({ locale });
 
   return (
-    <html lang="en" className={theme}>
+    <html lang={locale} className={theme}>
       <body className="bg-background">
         <div className={'flex h-screen flex-1 flex-col'}>
-          <I18nClientProvider locale={locale} messages={messages}>
+          <I18nClientProvider locale={locale} messages={{common}}>
             <ErrorPageContent
               statusCode={'common.pageNotFoundHeading'}
               heading={'common.pageNotFound'}
