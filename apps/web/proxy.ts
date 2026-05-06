@@ -181,7 +181,7 @@ async function matchUrlPattern(request: NextRequest) {
   const input = getNormalizedPathname(request.nextUrl.pathname);
 
   for (const pattern of patterns) {
-    const patternResult = pattern.pattern.exec(input);
+    const patternResult = pattern.pattern.exec(input, request.nextUrl.origin);
 
     if (patternResult !== null && 'pathname' in patternResult) {
       return pattern.handler;

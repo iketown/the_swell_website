@@ -4,6 +4,7 @@ import { Cms } from '@kit/cms';
 import { CollapsibleContent, CollapsibleTrigger } from '@kit/ui/collapsible';
 import {
   Sidebar,
+  SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
@@ -134,13 +135,15 @@ export function DocsNavigation({
   return (
     <>
       <Sidebar variant={'floating'}>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu className={'pb-48'}>
-              <Tree pages={pages} level={0} prefix={prefix} />
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu className={'pb-48'}>
+                <Tree pages={pages} level={0} prefix={prefix} />
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
       </Sidebar>
 
       <FloatingDocumentationNavigationButton />
