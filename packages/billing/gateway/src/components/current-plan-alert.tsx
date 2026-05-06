@@ -1,11 +1,11 @@
 import { Enums } from '@kit/supabase/database';
 import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
+import { alertExtras } from '@kit/ui/alert-extras';
 import { Trans } from '@kit/ui/trans';
 
-const statusBadgeMap: Record<
-  Enums<'subscription_status'>,
-  `success` | `destructive` | `warning`
-> = {
+type Tone = 'success' | 'warning' | 'destructive';
+
+const statusToneMap: Record<Enums<'subscription_status'>, Tone> = {
   active: 'success',
   trialing: 'success',
   past_due: 'destructive',
@@ -25,10 +25,13 @@ export function CurrentPlanAlert(
 
   const text = `${prefix}.${props.status}.description`;
   const title = `${prefix}.${props.status}.heading`;
-  const variant = statusBadgeMap[props.status];
+  const tone = statusToneMap[props.status];
 
   return (
-    <Alert variant={variant}>
+    <Alert
+      variant={tone === 'destructive' ? 'destructive' : undefined}
+      className={tone === 'destructive' ? undefined : alertExtras[tone]}
+    >
       <AlertTitle>
         <Trans i18nKey={title} />
       </AlertTitle>

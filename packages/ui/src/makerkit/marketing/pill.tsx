@@ -16,14 +16,14 @@ export const Pill: React.FC<
       {label && (
         <span
           className={
-            'text-primary-foreground bg-primary rounded-2xl border px-1.5 py-0.5 text-xs font-bold tracking-tight'
+            'text-primary-foreground bg-primary h-[24px] rounded-2xl border-none px-2 py-0.5 text-xs font-semibold tracking-tight md:text-sm'
           }
         >
           {label}
         </span>
       )}
       <GradientSecondaryText
-        className={'flex items-center gap-x-2 font-semibold tracking-tight'}
+        className={'flex items-center gap-x-2 font-medium tracking-tight'}
       >
         {children}
       </GradientSecondaryText>
@@ -36,7 +36,7 @@ export const Pill: React.FC<
     props: {
       ...props,
       className: cn(
-        'bg-muted/50 flex min-h-10 items-center gap-x-1.5 rounded-full border px-2 py-1 text-center text-sm font-medium text-transparent',
+        'flex min-h-8.5 items-center gap-x-2 rounded-full border p-1 text-center text-xs font-medium text-transparent md:text-sm',
         className,
       ),
       children: content,
@@ -55,7 +55,7 @@ export const PillActionButton: React.FC<
     props: {
       ...props,
       className: cn(
-        'text-secondary-foreground bg-input active:bg-primary active:text-primary-foreground hover:ring-muted-foreground/50 rounded-full px-1.5 py-1.5 text-center text-sm font-medium ring ring-transparent transition-colors',
+        'text-secondary-foreground bg-input active:bg-primary active:text-primary-foreground hover:bg-muted rounded-full p-1 text-center text-xs font-medium ring ring-transparent transition-colors',
         className,
       ),
       children,

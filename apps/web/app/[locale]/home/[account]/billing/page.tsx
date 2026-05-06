@@ -7,6 +7,7 @@ import {
   CurrentSubscriptionCard,
 } from '@kit/billing-gateway/components';
 import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
+import { alertExtras } from '@kit/ui/alert-extras';
 import { AppBreadcrumbs } from '@kit/ui/app-breadcrumbs';
 import { If } from '@kit/ui/if';
 import { PageBody } from '@kit/ui/page';
@@ -118,7 +119,7 @@ export default TeamAccountBillingPage;
 
 function CannotManageBillingAlert() {
   return (
-    <Alert variant={'warning'}>
+    <Alert className={alertExtras.warning}>
       <TriangleAlert className={'h-4'} />
 
       <AlertTitle>

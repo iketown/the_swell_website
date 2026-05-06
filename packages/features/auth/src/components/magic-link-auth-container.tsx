@@ -9,6 +9,7 @@ import * as z from 'zod';
 import { useAppEvents } from '@kit/shared/events';
 import { useSignInWithOtp } from '@kit/supabase/hooks/use-sign-in-with-otp';
 import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
+import { alertExtras } from '@kit/ui/alert-extras';
 import { Button } from '@kit/ui/button';
 import {
   Form,
@@ -157,7 +158,7 @@ export function MagicLinkAuthContainer({
 
 function SuccessAlert() {
   return (
-    <Alert variant={'success'}>
+    <Alert className={alertExtras.success}>
       <Check className={'h-4'} />
 
       <AlertTitle>

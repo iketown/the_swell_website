@@ -11,6 +11,7 @@ import { useForm } from 'react-hook-form';
 
 import { useUpdateUser } from '@kit/supabase/hooks/use-update-user-mutation';
 import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
+import { alertExtras } from '@kit/ui/alert-extras';
 import { Button } from '@kit/ui/button';
 import {
   Form,
@@ -214,7 +215,7 @@ function ErrorAlert({ error }: { error: { code: string } }) {
 
 function SuccessAlert() {
   return (
-    <Alert variant={'success'}>
+    <Alert className={alertExtras.success}>
       <Check className={'h-4'} />
 
       <AlertTitle>
@@ -230,7 +231,7 @@ function SuccessAlert() {
 
 function NeedsReauthenticationAlert() {
   return (
-    <Alert variant={'warning'}>
+    <Alert className={alertExtras.warning}>
       <TriangleAlert className={'h-4'} />
 
       <AlertTitle>

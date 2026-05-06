@@ -6,14 +6,8 @@ import * as z from 'zod';
 
 import { cn } from '../../lib/utils';
 import { Button } from '../../shadcn/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from '../../shadcn/form';
 import { Input } from '../../shadcn/input';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '../form';
 
 const NewsletterFormSchema = z.object({
   email: z.email(),

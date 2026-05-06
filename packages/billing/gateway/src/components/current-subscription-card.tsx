@@ -4,6 +4,7 @@ import { BadgeCheck, InfoIcon, MessageCircleWarning } from 'lucide-react';
 import { PlanSchema, type ProductSchema } from '@kit/billing';
 import { Tables } from '@kit/supabase/database';
 import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
+import { alertExtras } from '@kit/ui/alert-extras';
 import {
   Card,
   CardContent,
@@ -106,7 +107,7 @@ export function CurrentSubscriptionCard({
 
         <If condition={subscription.status === 'trialing'}>
           {() => (
-            <Alert variant={'info'}>
+            <Alert className={alertExtras.info}>
               <InfoIcon className={'h-4 w-4'} />
 
               <AlertTitle>
@@ -130,7 +131,7 @@ export function CurrentSubscriptionCard({
 
         <If condition={subscription.cancel_at_period_end}>
           {() => (
-            <Alert variant={'warning'}>
+            <Alert className={alertExtras.warning}>
               <MessageCircleWarning className={'h-4 w-4'} />
 
               <AlertTitle>

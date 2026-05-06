@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 
 import { Database } from '@kit/supabase/database';
 import { Badge } from '@kit/ui/badge';
+import { badgeExtras } from '@kit/ui/badge-extras';
 import { Button } from '@kit/ui/button';
 import { DataTable } from '@kit/ui/data-table';
 import {
@@ -173,7 +174,9 @@ function useGetColumns(
               <RoleBadge role={role} />
 
               <If condition={isPrimaryOwner}>
-                <Badge variant={'warning'}>{t('primaryOwnerLabel')}</Badge>
+                <Badge className={badgeExtras.warning}>
+                  {t('primaryOwnerLabel')}
+                </Badge>
               </If>
             </span>
           );

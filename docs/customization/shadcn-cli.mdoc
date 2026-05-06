@@ -1,0 +1,50 @@
+---
+status: "published"
+title: "Shadcn UI CLI"
+label: "Shadcn CLI"
+order: 1
+description: "Add components through the UI package's current shadcn configuration."
+---
+
+Run shadcn commands from `packages/ui`.
+
+```bash
+cd packages/ui
+pnpm exec shadcn add <component-name>
+```
+
+## Switching Shadcn UI theme
+
+To switch to a supported Shadcn UI theme, edit the `packages/ui/components.json` configuration file with the theme you wish to use, for example `base-vega`:
+
+```json
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-vega",
+  ...
+}
+```
+
+Run the command:
+
+Move to the folder `packages/ui`:
+
+```bash
+cd packages/ui
+```
+
+And re-add all the Shadcn UI components using the new theme:
+
+```bash
+pnpm exec shadcn add --all --yes
+```
+
+Format files from the root folder to ensure these files use the same format as the rest of the codebase:
+
+```bash
+pnpm format:fix
+```
+
+## Importing
+
+After adding and exporting a component, consume it through `@kit/ui/...`.

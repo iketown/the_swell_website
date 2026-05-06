@@ -8,6 +8,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 
 import { Database } from '@kit/supabase/database';
 import { Badge } from '@kit/ui/badge';
+import { badgeExtras } from '@kit/ui/badge-extras';
 import { Button } from '@kit/ui/button';
 import { DataTable } from '@kit/ui/data-table';
 import {
@@ -138,10 +139,12 @@ function useGetColumns(permissions: {
           const isExpired = getIsInviteExpired(row.original.expires_at);
 
           if (isExpired) {
-            return <Badge variant={'warning'}>{t('expired')}</Badge>;
+            return (
+              <Badge className={badgeExtras.warning}>{t('expired')}</Badge>
+            );
           }
 
-          return <Badge variant={'success'}>{t('active')}</Badge>;
+          return <Badge className={badgeExtras.success}>{t('active')}</Badge>;
         },
       },
       {

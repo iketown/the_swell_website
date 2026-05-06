@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from '@kit/ui/alert-dialog';
 import { Badge } from '@kit/ui/badge';
+import { badgeExtras } from '@kit/ui/badge-extras';
 import { Button } from '@kit/ui/button';
 import { If } from '@kit/ui/if';
 import {
@@ -49,6 +50,7 @@ import {
   TooltipTrigger,
 } from '@kit/ui/tooltip';
 import { Trans } from '@kit/ui/trans';
+import { cn } from '@kit/ui/utils';
 
 import { MultiFactorAuthSetupDialog } from './multi-factor-auth-setup-dialog';
 
@@ -235,15 +237,20 @@ function FactorsTable({
               </TableCell>
 
               <TableCell>
-                <Badge variant={'info'} className={'inline-flex uppercase'}>
+                <Badge
+                  className={cn('inline-flex uppercase', badgeExtras.info)}
+                >
                   {factor.factor_type}
                 </Badge>
               </TableCell>
 
               <td>
                 <Badge
-                  className={'inline-flex capitalize'}
-                  variant={factor.status === 'verified' ? 'success' : 'outline'}
+                  variant={factor.status === 'verified' ? undefined : 'outline'}
+                  className={cn(
+                    'inline-flex capitalize',
+                    factor.status === 'verified' && badgeExtras.success,
+                  )}
                 >
                   {factor.status}
                 </Badge>

@@ -1,16 +1,7 @@
-import Link from 'next/link';
-
-import { Menu } from 'lucide-react';
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@kit/ui/dropdown-menu';
 import { NavigationMenu, NavigationMenuList } from '@kit/ui/navigation-menu';
 import { Trans } from '@kit/ui/trans';
 
+import { MobileSiteNavigation } from './mobile-site-navigation';
 import { SiteNavigationItem } from './site-navigation-item';
 
 const links = {
@@ -34,16 +25,29 @@ const links = {
     label: 'marketing.faq',
     path: '/faq',
   },
+  SignIn: {
+    label: 'auth.signIn',
+    path: '/auth/sign-in',
+    showOn: 'mobile'
+  },
+  SignUp: {
+    label: 'auth.signUp',
+    path: '/auth/sign-up',
+    showOn: 'mobile',
+    variant: 'default' as const,
+  },
 };
 
 export function SiteNavigation() {
   const NavItems = Object.values(links).map((item) => {
+    if ('showOn' in item && item.showOn === 'mobile') return null;
+
     return (
       <SiteNavigationItem key={item.path} path={item.path}>
         <Trans i18nKey={item.label} />
       </SiteNavigationItem>
     );
-  });
+  }).filter(Boolean);
 
   return (
     <>
@@ -56,35 +60,8 @@ export function SiteNavigation() {
       </div>
 
       <div className={'flex justify-start sm:items-center md:hidden'}>
-        <MobileDropdown />
+        <MobileSiteNavigation links={Object.values(links)} />
       </div>
     </>
-  );
-}
-
-function MobileDropdown() {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger aria-label={'Open Menu'}>
-        <Menu className={'h-8 w-8'} />
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent className={'w-full'}>
-        {Object.values(links).map((item) => {
-          const className = 'flex w-full h-full items-center';
-
-          return (
-            <DropdownMenuItem
-              key={item.path}
-              render={
-                <Link className={className} href={item.path}>
-                  <Trans i18nKey={item.label} />
-                </Link>
-              }
-            />
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

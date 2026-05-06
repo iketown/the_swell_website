@@ -65,84 +65,39 @@ export default function DefaultAlertDemo() {
 }
 ```
 
-### Info Alert
+### Info / Success / Warning Alerts
 
-For more informative alerts, you can use the `info` variant.
+Makerkit ships a companion token map for non-upstream tones. Apply via `className` so that `packages/ui/src/shadcn/alert.tsx` stays upstream-equivalent and CLI-replaceable. See [Customizing Shadcn Primitives](customizing-shadcn-primitives) for the full rationale.
 
 {% component path="shadcn/alert/info-alert" /%}
 
 ```tsx
-import { InfoIcon } from 'lucide-react';
+import { CheckCircleIcon, InfoIcon, TriangleAlertIcon } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
+import { alertExtras } from '@kit/ui/alert-extras';
 
-export default function InfoAlertDemo() {
+export default function NonUpstreamAlertsDemo() {
   return (
-    <Alert variant={'info'}>
-      <InfoIcon className="h-5 w-5" />
+    <div className="flex flex-col gap-4">
+      <Alert className={alertExtras.info}>
+        <InfoIcon className="h-5 w-5" />
+        <AlertTitle>This is an info alert</AlertTitle>
+        <AlertDescription>This is the description of the alert.</AlertDescription>
+      </Alert>
 
-      <AlertTitle>
-        <span>This is an info alert</span>
-      </AlertTitle>
+      <Alert className={alertExtras.success}>
+        <CheckCircleIcon className="h-5 w-5" />
+        <AlertTitle>This is a success alert</AlertTitle>
+        <AlertDescription>This is the description of the alert.</AlertDescription>
+      </Alert>
 
-      <AlertDescription>
-        This is the description of the alert.
-      </AlertDescription>
-    </Alert>
-  );
-}
-```
-
-### Success Alert
-
-For success alerts, use the `success` variant.
-
-{% component path="shadcn/alert/success-alert" /%}
-
-```tsx
-import { CheckCircleIcon } from 'lucide-react';
-
-import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
-
-export default function SuccessAlertDemo() {
-  return (
-    <Alert variant={'success'}>
-      <CheckCircleIcon className="h-5 w-5" />
-
-      <AlertTitle>
-        <span>This is a success alert</span>
-      </AlertTitle>
-
-      <AlertDescription>
-        This is the description of the alert.
-      </AlertDescription>
-    </Alert>
-  );
-}
-```
-
-### Warning Alert
-
-For warning alerts, use the `warning` variant.
-
-{% component path="shadcn/alert/warning-alert" /%}
-
-```tsx
-import { TriangleAlertIcon } from 'lucide-react';
-
-import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
-
-export default function WarningAlertDemo() {
-  return (
-    <Alert variant={'warning'}>
-      <TriangleAlertIcon className="h-5 w-5" />
-
-      <AlertTitle>
-        <span>This is a warning alert</span>
-      </AlertTitle>
-
-      <AlertDescription>This is the description of the alert.</AlertDescription>
-    </Alert>
+      <Alert className={alertExtras.warning}>
+        <TriangleAlertIcon className="h-5 w-5" />
+        <AlertTitle>This is a warning alert</AlertTitle>
+        <AlertDescription>This is the description of the alert.</AlertDescription>
+      </Alert>
+    </div>
   );
 }
 ```
@@ -231,35 +186,28 @@ The `Badge` component is a small label or tag that is displayed inline with othe
 
 {% component path="shadcn/badge" /%}
 
+Use upstream `variant` values directly. For Makerkit's non-upstream tones (`info`, `success`, `warning`), apply the matching token from `@kit/ui/badge-extras` via `className`. See [Customizing Shadcn Primitives](customizing-shadcn-primitives) for the full rationale.
+
 ```tsx
 import { Badge } from '@kit/ui/badge';
+import { badgeExtras } from '@kit/ui/badge-extras';
 
 function BadgeDemo() {
   return (
-    <>
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <Badge variant={'outline'}>Profile</Badge>
-          <Badge variant={'outline'}>Settings</Badge>
-          <Badge variant={'outline'}>Messages</Badge>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Badge variant={'info'}>
-            <span>Info</span>
-          </Badge>
-          <Badge variant={'success'}>
-            <span>Success</span>
-          </Badge>
-          <Badge variant={'warning'}>
-            <span>Warning</span>
-          </Badge>
-          <Badge variant={'destructive'}>
-            <span>Error</span>
-          </Badge>
-        </div>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <Badge variant={'outline'}>Profile</Badge>
+        <Badge variant={'outline'}>Settings</Badge>
+        <Badge variant={'outline'}>Messages</Badge>
       </div>
-    </>
+
+      <div className="flex items-center gap-2">
+        <Badge className={badgeExtras.info}>Info</Badge>
+        <Badge className={badgeExtras.success}>Success</Badge>
+        <Badge className={badgeExtras.warning}>Warning</Badge>
+        <Badge variant={'destructive'}>Error</Badge>
+      </div>
+    </div>
   );
 }
 ```

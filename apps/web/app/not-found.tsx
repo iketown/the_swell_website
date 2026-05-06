@@ -27,7 +27,7 @@ const NotFoundPage = async () => {
     <html lang={locale} className={theme}>
       <body className="bg-background">
         <div className={'flex h-screen flex-1 flex-col'}>
-          <I18nClientProvider locale={locale} messages={{common}}>
+          <I18nClientProvider locale={locale} messages={{ common }}>
             <ErrorPageContent
               statusCode={'common.pageNotFoundHeading'}
               heading={'common.pageNotFound'}

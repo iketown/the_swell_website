@@ -16,6 +16,7 @@ import {
   getProductPlanPair,
 } from '@kit/billing';
 import { Badge } from '@kit/ui/badge';
+import { badgeExtras } from '@kit/ui/badge-extras';
 import { Button } from '@kit/ui/button';
 import {
   Form,
@@ -287,8 +288,10 @@ export function PlanPicker(
                                 >
                                   <div>
                                     <Badge
-                                      className={'px-1 py-0.5 text-xs'}
-                                      variant={'success'}
+                                      className={cn(
+                                        'px-1 py-0.5 text-xs',
+                                        badgeExtras.success,
+                                      )}
                                     >
                                       <Trans
                                         i18nKey={`billing.trialPeriod`}

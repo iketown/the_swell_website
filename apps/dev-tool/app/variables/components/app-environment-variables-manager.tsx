@@ -19,6 +19,7 @@ import { Subject, debounceTime } from 'rxjs';
 
 import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
 import { Badge } from '@kit/ui/badge';
+import { badgeExtras } from '@kit/ui/badge-extras';
 import { Button } from '@kit/ui/button';
 import {
   DropdownMenu,
@@ -265,7 +266,7 @@ function EnvList({ appState }: { appState: AppEnvState }) {
                 )}
 
                 {varState.isOverridden && (
-                  <Badge variant="warning">Overridden</Badge>
+                  <Badge className={badgeExtras.warning}>Overridden</Badge>
                 )}
               </div>
 
@@ -405,7 +406,7 @@ function EnvList({ appState }: { appState: AppEnvState }) {
             </If>
 
             <If condition={varState.isOverridden}>
-              <Badge variant="warning">
+              <Badge className={badgeExtras.warning}>
                 Overridden in {varState.effectiveSource}
                 <TooltipProvider>
                   <Tooltip>
@@ -442,7 +443,7 @@ function EnvList({ appState }: { appState: AppEnvState }) {
 
             <If condition={model?.deprecated}>
               {(deprecated) => (
-                <Badge variant="warning">
+                <Badge className={badgeExtras.warning}>
                   Deprecated
                   <TooltipProvider>
                     <Tooltip>

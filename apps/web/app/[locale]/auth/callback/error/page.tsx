@@ -4,6 +4,7 @@ import type { AuthError } from '@supabase/supabase-js';
 
 import { ResendAuthLinkForm } from '@kit/auth/resend-email-link';
 import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
+import { alertExtras } from '@kit/ui/alert-extras';
 import { Button } from '@kit/ui/button';
 import { Trans } from '@kit/ui/trans';
 
@@ -25,7 +26,7 @@ async function AuthCallbackErrorPage(props: AuthCallbackErrorPageProps) {
 
   return (
     <div className={'flex flex-col space-y-4 py-4'}>
-      <Alert variant={'warning'}>
+      <Alert className={alertExtras.warning}>
         <AlertTitle>
           <Trans i18nKey={'auth.authenticationErrorAlertHeading'} />
         </AlertTitle>

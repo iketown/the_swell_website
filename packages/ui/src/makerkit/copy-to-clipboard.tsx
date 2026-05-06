@@ -5,7 +5,7 @@ import { ReactNode, useCallback, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 
 import { cn } from '../lib/utils';
-import { toast } from '../shadcn/sonner';
+import { toast } from './sonner';
 
 interface CopyToClipboardProps {
   children: ReactNode;

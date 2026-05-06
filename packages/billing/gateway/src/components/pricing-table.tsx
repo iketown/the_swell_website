@@ -465,7 +465,7 @@ function PlanIntervalSwitcher(
           <Button
             size={'sm'}
             key={plan}
-            variant={selected ? 'secondary' : 'custom'}
+            variant={selected ? 'secondary' : null}
             className={className}
             onClick={() => props.setInterval(plan)}
           >

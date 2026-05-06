@@ -2,18 +2,17 @@
 
 import * as React from 'react';
 
-import { cn } from '#lib/utils';
-import { Command as CommandPrimitive } from 'cmdk';
-import { CheckIcon, SearchIcon } from 'lucide-react';
-
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from './dialog';
-import { InputGroup, InputGroupAddon } from './input-group';
+} from '#components/dialog';
+import { InputGroup, InputGroupAddon } from '#components/input-group';
+import { cn } from '#lib/utils';
+import { Command as CommandPrimitive } from 'cmdk';
+import { SearchIcon, CheckIcon } from 'lucide-react';
 
 function Command({
   className,

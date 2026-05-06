@@ -24,7 +24,7 @@ import pathsConfig from '~/config/paths.config';
 function Home() {
   return (
     <div className={'mt-4 flex flex-col space-y-24 py-14'}>
-      <div className={'mx-auto'}>
+      <div className={'container mx-auto'}>
         <Hero
           pill={
             <Pill label={'New'}>

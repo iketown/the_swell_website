@@ -60,7 +60,7 @@ export function PasswordSignUpForm({
         className={'flex w-full flex-col gap-y-4'}
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className={'flex flex-col space-y-2.5'}>
+        <div className={'flex flex-col gap-y-1.5'}>
           <FormField
             control={form.control}
             name={'email'}
@@ -143,7 +143,7 @@ export function PasswordSignUpForm({
 
               <ArrowRight
                 className={
-                  'zoom-in animate-in slide-in-from-left-2 fill-mode-both h-4 delay-500 duration-500'
+                  'zoom-in animate-in slide-in-from-left-2 fill-mode-both h-4 gap-2 delay-500 duration-500'
                 }
               />
             </span>

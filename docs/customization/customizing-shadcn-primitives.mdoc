@@ -1,0 +1,160 @@
+---
+status: "published"
+label: "Customizing Shadcn Primitives"
+title: "Extend Shadcn Components Without Breaking the CLI | Next.js Supabase SaaS Kit"
+order: 2
+description: "Add project-specific behavior to Shadcn UI primitives in Makerkit without losing the ability to use the Shadcn CLI to swap themes or sync upstream components."
+---
+
+`packages/ui/src/shadcn/` is **upstream-owned**. The Shadcn CLI may overwrite any file there when you sync a component or switch themes — anything custom you put in those files will be silently lost on the next sync.
+
+This guide explains how the Shadcn CLI workflow is wired in Makerkit and the two patterns to use when you need to add project-specific behavior on top of an upstream primitive.
+
+## How the Shadcn CLI workflow is wired
+
+The Shadcn CLI uses path aliases declared in `packages/ui/components.json`. To keep generated files identical to upstream, Makerkit maps those aliases through Node.js [subpath imports](https://nodejs.org/api/packages.html#subpath-imports) in `packages/ui/package.json`:
+
+```json
+{
+  "imports": {
+    "#components/*": "./src/shadcn/*.tsx",
+    "#lib/utils": "./src/lib/utils/index.ts",
+    "#lib/*": "./src/lib/*.ts",
+    "#hooks/*": "./src/hooks/*.ts",
+    "#utils": "./src/lib/utils/index.ts"
+  }
+}
+```
+
+And in `packages/ui/components.json`:
+
+```json
+{
+  "aliases": {
+    "components": "#components",
+    "ui": "#components",
+    "lib": "#lib",
+    "hooks": "#hooks",
+    "utils": "#lib/utils"
+  }
+}
+```
+
+**Why this matters:**
+
+- Files inside `packages/ui/src/shadcn/` import siblings via `#components/*`, `#utils`, etc. — exactly the form the CLI emits. No post-CLI edits are needed when you sync a component.
+- The public package exports (e.g., `@kit/ui/button`) live in `packages/ui/package.json` under `"exports"`, separate from these internal aliases. Consumers outside the package always import from `@kit/ui/<name>`, never from `#components/*`.
+- When you redirect a public export to a `makerkit/` wrapper (see patterns below), the underlying `shadcn/<name>.tsx` keeps using `#components/*` internally — the wrapper sits on top.
+
+`#components/*` is a Node.js subpath import that only resolves *inside the `@kit/ui` package*. Don't try to use it from any other workspace; from outside the package you always use the public `@kit/ui/<name>` form.
+
+## Pattern 1 — Wrap and re-export
+
+Use this when you want to **change the behavior of a primitive transparently** at every call site (e.g., make `FormMessage` translate error keys via i18n, or add `toast` to the sonner export).
+
+1. Create `packages/ui/src/makerkit/<name>.tsx`. Re-export the upstream primitives and add your overrides:
+
+```tsx
+// packages/ui/src/makerkit/sonner.tsx
+'use client';
+
+// Re-exports the upstream `Toaster` and pulls `toast` straight from `sonner`
+// so that `shadcn/sonner.tsx` stays upstream-equivalent and CLI-replaceable.
+
+export { toast } from 'sonner';
+export { Toaster } from '../shadcn/sonner';
+```
+
+2. Redirect the package export in `packages/ui/package.json`:
+
+```json
+{
+  "exports": {
+    "./sonner": "./src/makerkit/sonner.tsx"
+  }
+}
+```
+
+Call sites continue to import from `@kit/ui/sonner` — they don't know the wrapper exists.
+
+## Pattern 2 — Companion token map
+
+Use this when you want to **add visual variants** to a primitive (e.g., `success`, `warning`, `info` on `Badge` or `Alert`) without widening the upstream variant union.
+
+1. Export a `const` map of `className` tokens from `packages/ui/src/makerkit/<name>.tsx`:
+
+```tsx
+// packages/ui/src/makerkit/badge.tsx
+// Project-specific Badge variants. Apply via `className` so that
+// `shadcn/badge.tsx` stays upstream-equivalent and CLI-replaceable, e.g.:
+//   <Badge className={badgeExtras.success}>OK</Badge>
+
+export const badgeExtras = {
+  info: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
+  success:
+    'bg-green-600/10 text-green-600 dark:bg-green-600/20 [&>svg]:text-green-600',
+  warning:
+    'bg-transparent border-yellow-600 text-yellow-600 dark:border-yellow-600 [&>svg]:text-yellow-600',
+} as const;
+
+export type BadgeExtraVariant = keyof typeof badgeExtras;
+```
+
+2. Add a sibling export to `packages/ui/package.json`:
+
+```json
+{
+  "exports": {
+    "./badge": "./src/shadcn/badge.tsx",
+    "./badge-extras": "./src/makerkit/badge.tsx"
+  }
+}
+```
+
+3. Apply the token at the call site with `cn()`:
+
+```tsx
+import { Badge } from '@kit/ui/badge';
+import { badgeExtras } from '@kit/ui/badge-extras';
+import { cn } from '@kit/ui/utils';
+
+// Standalone:
+<Badge className={badgeExtras.success}>Active</Badge>;
+
+// Composed with an upstream variant:
+<Badge variant="outline" className={badgeExtras.warning}>Pending</Badge>;
+
+// Conditional:
+<Badge className={cn('inline-flex capitalize', isVerified && badgeExtras.success)}>
+  {status}
+</Badge>;
+```
+
+The Shadcn primitive's `variant` union stays upstream; the named abstraction (`badgeExtras.success`) survives at call sites.
+
+The same pattern is used for `Alert`:
+
+```tsx
+import { Alert, AlertTitle, AlertDescription } from '@kit/ui/alert';
+import { alertExtras } from '@kit/ui/alert-extras';
+
+<Alert className={alertExtras.success}>
+  <AlertTitle>Saved</AlertTitle>
+  <AlertDescription>Your changes are live.</AlertDescription>
+</Alert>;
+```
+
+## Picking a pattern
+
+| Want to… | Use |
+| --- | --- |
+| Change behavior transparently (intercept props, swap children, add side-effects) | Wrap and re-export |
+| Add visual variants (extra colors, tones) | Companion token map |
+| Add a brand-new primitive that doesn't exist upstream | Add directly to `packages/ui/src/makerkit/` and export from `package.json` |
+
+## Caveats
+
+- Always merge with `cn()` from `@kit/ui/utils` — it uses `tailwind-merge` to resolve conflicting utility classes (e.g., `bg-primary` from the default variant vs `bg-green-600/10` from your token).
+- `tailwind-merge` resolves utilities like `bg-*`, `text-*`, `border-*`, but **does not** detect conflicts in arbitrary selectors like `[&>svg]:text-*`. If upstream changes a primitive's icon color rule, your override may need to tighten its selector to win.
+- Always add a header comment in the makerkit file explaining why the wrapper exists. Future-you (or the CLI sync diff) needs to know what's going on.
+- Never edit files in `packages/ui/src/shadcn/` to add project behavior — the CLI will silently overwrite your changes on the next sync.

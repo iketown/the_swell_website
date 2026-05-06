@@ -2,13 +2,11 @@
 
 import * as React from 'react';
 
+import { Label } from '#components/label';
 import { cn } from '#utils';
 import { useRender } from '@base-ui/react/use-render';
 import type { ControllerProps, FieldPath, FieldValues } from 'react-hook-form';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
-
-import { Trans } from '../makerkit/trans';
-import { Label } from './label';
 
 const Form = FormProvider;
 
@@ -139,11 +137,13 @@ const FormDescription: React.FC<React.ComponentPropsWithRef<'p'>> = ({
 };
 FormDescription.displayName = 'FormDescription';
 
-const FormMessage: React.FC<
-  React.ComponentPropsWithRef<'p'> & { params?: Record<string, unknown> }
-> = ({ className, children, params = {}, ...props }) => {
+const FormMessage: React.FC<React.ComponentPropsWithRef<'p'>> = ({
+  className,
+  children,
+  ...props
+}) => {
   const { error, formMessageId } = useFormField();
-  const body = error ? String(error?.message) : children;
+  const body = error ? String(error?.message ?? '') : children;
 
   if (!body) {
     return null;
@@ -155,11 +155,7 @@ const FormMessage: React.FC<
       className={cn('text-destructive text-[0.8rem] font-medium', className)}
       {...props}
     >
-      {typeof body === 'string' ? (
-        <Trans i18nKey={body} defaults={body} values={params} />
-      ) : (
-        body
-      )}
+      {body}
     </p>
   );
 };

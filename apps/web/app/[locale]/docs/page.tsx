@@ -31,24 +31,26 @@ async function DocsPage({ params }: DocsPageProps) {
         subtitle={t('documentationSubtitle')}
       />
 
-      <div
-        className={
-          'relative container flex size-full justify-center overflow-y-auto'
-        }
-      >
-        <DocaCardsList locale={locale} />
+      <div className={'relative flex size-full justify-center overflow-y-auto'}>
+        <DocsCardsList locale={locale} />
       </div>
     </div>
   );
 }
 
-async function DocaCardsList({ locale }: { locale: string }) {
+async function DocsCardsList({ locale }: { locale: string }) {
   const items = await getDocs(locale);
 
   // Filter out any docs that have a parentId, as these are children of other docs
   const cards = items.filter((item) => !item.parentId);
 
-  return <DocsCards cards={cards} />;
+  return (
+    <div className="container">
+      <div className={'flex flex-1 flex-col'}>
+        <DocsCards cards={cards} />
+      </div>
+    </div>
+  );
 }
 
 export default DocsPage;

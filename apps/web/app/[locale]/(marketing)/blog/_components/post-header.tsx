@@ -2,9 +2,10 @@ import { Cms } from '@kit/cms';
 import { If } from '@kit/ui/if';
 import { cn } from '@kit/ui/utils';
 
+import { sanitizeCmsExcerptHtml } from '~/lib/sanitize-cms-html';
+
 import { CoverImage } from './cover-image';
 import { DateFormatter } from './date-formatter';
-import { sanitizeCmsExcerptHtml } from '~/lib/sanitize-cms-html';
 
 export async function PostHeader({ post }: { post: Cms.ContentItem }) {
   const { title, publishedAt, description, image } = post;

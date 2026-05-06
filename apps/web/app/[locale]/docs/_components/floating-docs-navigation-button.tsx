@@ -9,8 +9,8 @@ export function FloatingDocumentationNavigationButton() {
   const { toggleSidebar } = useSidebar();
   return (
     <Button
-      size="custom"
-      variant="custom"
+      size={null}
+      variant={null}
       className={
         'bg-primary fixed right-5 bottom-5 z-10 h-16! w-16! rounded-full! lg:hidden'
       }

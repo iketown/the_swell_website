@@ -2,7 +2,7 @@
 status: "published"
 label: "Updating the Logo"
 title: "Customize Your Application Logo | Next.js Supabase SaaS Kit"
-order: 1
+order: 0
 description: "Replace the default Makerkit logo with your own brand logo using SVG, image files, or custom React components."
 ---
 
@@ -134,29 +134,36 @@ function LogoImage({ className }: { className?: string }) {
 
 ## Where the Logo Appears
 
-The `AppLogo` component renders in these locations:
+`AppLogo` is imported from `~/components/app-logo` and rendered at these call sites:
 
-| Location | File Path | Notes |
-|----------|-----------|-------|
-| Site Header | `packages/ui/src/makerkit/marketing/header.tsx` | Marketing pages |
-| Site Footer | `packages/ui/src/makerkit/marketing/footer.tsx` | All pages |
-| Auth Pages | `apps/web/app/[locale]/auth/layout.tsx` | Sign in, sign up |
-| App Sidebar | `packages/ui/src/makerkit/sidebar-navigation.tsx` | Dashboard (when team accounts disabled) |
-| Email Templates | `packages/email-templates/src/` | Transactional emails |
+| Location | File Path |
+|----------|-----------|
+| Marketing site header | `apps/web/app/[locale]/(marketing)/_components/site-header.tsx` |
+| Marketing site footer | `apps/web/app/[locale]/(marketing)/_components/site-footer.tsx` |
+| Auth pages | `apps/web/app/[locale]/auth/layout.tsx` |
+| Personal account sidebar | `apps/web/app/[locale]/home/(user)/layout.tsx` |
+| Team account sidebar | `apps/web/app/[locale]/home/[account]/layout.tsx` |
+| Admin sidebar | `apps/web/app/[locale]/admin/_components/admin-sidebar.tsx` |
+| `create-team`, `join`, `update-password`, `identities` pages | `apps/web/app/[locale]/...` |
+
+Editing `apps/web/components/app-logo.tsx` updates every call site at once.
 
 ## Favicon and Social Images
 
-Update these additional brand assets in `apps/web/app/`:
+Favicon assets live in `apps/web/public/images/favicon/` and are wired up via the `icons` field in `apps/web/lib/root-metadata.ts`:
 
 ```
-apps/web/app/
-├── favicon.ico          # Browser tab icon (32x32)
-├── icon.png             # PWA icon (512x512)
-├── apple-icon.png       # iOS home screen (180x180)
-└── opengraph-image.png  # Social sharing (1200x630)
+apps/web/public/images/favicon/
+├── favicon.ico              # Browser tab icon
+├── favicon-16x16.png
+├── favicon-32x32.png
+├── apple-touch-icon.png     # iOS home screen
+├── android-chrome-192x192.png
+├── android-chrome-512x512.png
+└── safari-pinned-tab.svg
 ```
 
-Generate these from your logo using tools like [RealFaviconGenerator](https://realfavicongenerator.net/) or [Favicon.io](https://favicon.io/).
+To swap them, replace the files in place and update the paths in `apps/web/lib/root-metadata.ts` if the filenames change. Generate the set from your logo using tools like [RealFaviconGenerator](https://realfavicongenerator.net/) or [Favicon.io](https://favicon.io/).
 
 ## Common Mistakes
 
@@ -183,7 +190,7 @@ After updating your logo:
      {"question": "How do I make my SVG logo change color with the theme?", "answer": "Use Tailwind's fill classes on your SVG paths: fill-primary for the default theme color, or dark:fill-white to change in dark mode. Remove any hardcoded fill attributes from the SVG."},
      {"question": "What size should my logo be?", "answer": "Design for 95px width on desktop and 80px on mobile. SVGs scale automatically. For raster images, export at 2x resolution (190x64 pixels minimum) to support high-DPI displays."},
      {"question": "Can I use different logos in different parts of the app?", "answer": "Yes. You can modify the AppLogo component to accept a variant prop or create separate components. However, maintaining brand consistency is recommended."},
-     {"question": "How do I update the logo in email templates?", "answer": "Email templates use the same AppLogo component where possible, but some email clients require inline images. Check packages/email-templates/src/components/ for email-specific logo handling."}
+     {"question": "How do I update the logo in email templates?", "answer": "Email templates do not consume the AppLogo component — most clients require an absolute URL. Edit the email components directly under packages/email-templates/src/ to swap the image (for example, the team logo URL in invite.email.tsx)."}
    ]
 /%}
 
