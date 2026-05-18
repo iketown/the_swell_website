@@ -38,8 +38,10 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  // Automatically captures the error when the component mounts
-  useCaptureException(error);
+  // Errors with a `digest` originated server-side and were already captured
+  // by `onRequestError`. Pass `null` to skip the client report and avoid a
+  // duplicate event in your dashboard.
+  useCaptureException(error.digest ? null : error);
 
   return (
     <div>
@@ -50,7 +52,39 @@ export default function ErrorPage({
 }
 ```
 
-This hook captures the error once when the component mounts. It's ideal for error boundary pages.
+This hook captures the error once when the component mounts. It's ideal for error boundary pages. Pass `null` whenever you want to skip the report.
+
+### Capturing from `global-error.tsx`
+
+`global-error.tsx` replaces the root layout, which means the `MonitoringProvider` context isn't available there. Use `captureClientException` from `@kit/monitoring/instrumentation-client` instead — it talks to the same lazily-loaded provider without needing the React tree:
+
+```tsx {% title="apps/web/app/global-error.tsx" %}
+'use client';
+
+import { useEffect } from 'react';
+
+import { captureClientException } from '@kit/monitoring/instrumentation-client';
+
+export default function GlobalError({
+  error,
+}: {
+  error: Error & { digest?: string };
+}) {
+  useEffect(() => {
+    if (error.digest) return;
+
+    void captureClientException(error);
+  }, [error]);
+
+  return (
+    <html>
+      <body>
+        <h2>Something went wrong</h2>
+      </body>
+    </html>
+  );
+}
+```
 
 ### Using the useMonitoring Hook
 

@@ -112,6 +112,15 @@ The `SENTRY_AUTH_TOKEN` should only exist in your CI/CD environment, not in your
 
 Makerkit initializes Sentry with sensible defaults. You can customize these by modifying the configuration in the Sentry package.
 
+### Where Sentry is initialized
+
+Sentry initialization is owned by the monitoring instrumentation files, not by `SentryMonitoringService`:
+
+- `apps/web/instrumentation-client.ts` → `registerClientMonitoringInstrumentation()` → `initializeSentryBrowserClient()`
+- `apps/web/instrumentation.ts` → `registerMonitoringInstrumentation()` → `initializeSentryServerClient()`
+
+`instrumentation-client.ts` also installs provider-agnostic `window.onerror` and `unhandledrejection` listeners. The Sentry client config explicitly filters out Sentry's `GlobalHandlers` integration to avoid double-reporting — keep that filter in place if you customize integrations.
+
 ### Client-side configuration
 
 Edit `packages/monitoring/sentry/src/sentry.client.config.ts`:
@@ -122,6 +131,8 @@ import { init } from '@sentry/nextjs';
 export function initializeSentryBrowserClient(
   props: Parameters<typeof init>[0] = {},
 ) {
+  const userIntegrations = props.integrations;
+
   return init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
@@ -135,16 +146,17 @@ export function initializeSentryBrowserClient(
     // Capture 100% of sessions with errors for replay
     replaysOnErrorSampleRate: 1.0,
 
-    // Add custom integrations
-    integrations: [
-      // Example: Add breadcrumbs for console logs
-      // Sentry.breadcrumbsIntegration({ console: true }),
-    ],
-
     ...props,
+
+    // Applied AFTER `...props` so callers can't accidentally re-enable
+    // `GlobalHandlers`. The monitoring layer owns `window.onerror` /
+    // `unhandledrejection`; keeping both would double-report.
+    integrations: composeIntegrations(userIntegrations),
   });
 }
 ```
+
+If you need extra integrations, pass them via `props.integrations` — they're composed with Sentry's defaults and the `GlobalHandlers` filter is reapplied on top.
 
 ### Server-side configuration
 
@@ -185,8 +197,8 @@ Error capture is not affected by sampling. All errors are captured regardless of
 
 All uncaught exceptions are automatically captured:
 
-- **Client-side**: React errors, unhandled promise rejections
-- **Server-side**: Server Component errors, Server Action errors, Route Handler errors, Middleware errors
+- **Client-side**: React errors, unhandled promise rejections — captured by the global handlers installed in `instrumentation-client.ts`, then forwarded to Sentry via `captureException` with a `mechanism` of `onerror`, `onunhandledrejection`, or `react-error-boundary`.
+- **Server-side**: Server Component errors, Server Action errors, Route Handler errors, Middleware errors — forwarded to Sentry's `captureRequestError` helper from `@sentry/nextjs`, which records the full Next.js request context.
 
 Each error includes:
 

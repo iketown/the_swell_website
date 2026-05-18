@@ -13,6 +13,7 @@
   "exports": {
     "./server": "./src/server.ts",
     "./instrumentation": "./src/instrumentation.ts",
+    "./instrumentation-client": "./src/instrumentation-client.ts",
     "./hooks": "./src/hooks/index.ts",
     "./components": "./src/components/index.ts"
   },
@@ -25,7 +26,9 @@
     "@kit/sentry": "workspace:*",
     "@kit/shared": "workspace:*",
     "@kit/tsconfig": "workspace:*",
+    "@sentry/nextjs": "catalog:",
     "@types/react": "catalog:",
+    "next": "catalog:",
     "react": "catalog:",
     "zod": "catalog:"
   }

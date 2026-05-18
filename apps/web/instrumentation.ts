@@ -1,7 +1,3 @@
-/**
- * This file is used to register monitoring instrumentation
- * for your Next.js application.
- */
 import { type Instrumentation } from 'next';
 
 export async function register() {
@@ -13,30 +9,13 @@ export async function register() {
   await registerMonitoringInstrumentation();
 }
 
-/**
- * @name onRequestError
- * @description This function is called when an error occurs during the request lifecycle.
- * It is used to capture the error and send it to the monitoring service.
- */
 export const onRequestError: Instrumentation.onRequestError = async (
-  err,
+  error,
   request,
   context,
 ) => {
-  const { getServerMonitoringService } = await import('@kit/monitoring/server');
+  const { onRequestError: handler } =
+    await import('@kit/monitoring/instrumentation');
 
-  const service = await getServerMonitoringService();
-
-  await service.ready();
-
-  await service.captureException(
-    err as Error,
-    {},
-    {
-      path: request.path,
-      headers: request.headers,
-      method: request.method,
-      routePath: context.routePath,
-    },
-  );
+  return handler(error, request, context);
 };

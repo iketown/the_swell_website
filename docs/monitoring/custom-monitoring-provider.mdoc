@@ -10,42 +10,41 @@ order: 1
 
 [Implement the MonitoringService interface](#implement-the-monitoringservice-interface)
 
-[Register the provider](#register-the-provider)
+[Register the provider type](#register-the-provider-type)
 
-[Configure for server-side](#server-side-configuration)
+[Register the React provider](#register-the-react-provider)
+
+[Register the server service](#register-the-server-service)
+
+[Register the server instrumentation](#register-the-server-instrumentation)
+
+[Register the client instrumentation](#register-the-client-instrumentation)
 
 {% /sequence %}
 
 The monitoring system uses a registry pattern that loads providers dynamically based on the `NEXT_PUBLIC_MONITORING_PROVIDER` environment variable. You can add support for LogRocket, Bugsnag, Datadog, or any other service.
 
+{% alert type="warning" title="Five registration points, not three" %}
+SDK initialization is no longer owned by `MonitoringService`. The instrumentation files (`instrumentation.ts` and `instrumentation-client.ts`) own SDK init and provider-agnostic global error handlers; the service is a thin capture/identify wrapper. A custom provider has to register in **all five** registries below — in particular, the `onRequestError` entry is what keeps server errors from being silently dropped after the `error.tsx` digest dedup.
+{% /alert %}
+
 ## Implement the MonitoringService Interface
 
-Create a new package or add to the existing monitoring packages:
+The service is a thin wrapper around the SDK's capture / identify APIs — no SDK initialization here. Init happens in the instrumentation registrations further down.
 
 ```typescript {% title="packages/monitoring/logrocket/src/logrocket-monitoring.service.ts" %}
 import LogRocket from 'logrocket';
 import { MonitoringService } from '@kit/monitoring-core';
 
 export class LogRocketMonitoringService implements MonitoringService {
-  private readonly readyPromise: Promise<unknown>;
-  private readyResolver?: (value?: unknown) => void;
-
-  constructor() {
-    this.readyPromise = new Promise(
-      (resolve) => (this.readyResolver = resolve),
-    );
-
-    void this.initialize();
-  }
-
-  async ready() {
-    return this.readyPromise;
+  // The interface still requires `ready()`. Init runs in the instrumentation
+  // entrypoint, so this is a no-op for new providers.
+  ready() {
+    return Promise.resolve();
   }
 
   captureException(error: Error, extra?: Record<string, unknown>) {
-    LogRocket.captureException(error, {
-      extra,
-    });
+    LogRocket.captureException(error, { extra });
   }
 
   captureEvent(event: string, extra?: Record<string, unknown>) {
@@ -57,22 +56,6 @@ export class LogRocketMonitoringService implements MonitoringService {
       email: user.email,
       name: user.name,
     });
-  }
-
-  private async initialize() {
-    const appId = process.env.NEXT_PUBLIC_LOGROCKET_APP_ID;
-
-    if (!appId) {
-      console.warn('LogRocket app ID not configured');
-      this.readyResolver?.();
-      return;
-    }
-
-    if (typeof window !== 'undefined') {
-      LogRocket.init(appId);
-    }
-
-    this.readyResolver?.();
   }
 }
 ```
@@ -100,88 +83,21 @@ Create the package structure:
 export { LogRocketMonitoringService } from './logrocket-monitoring.service';
 ```
 
-## Register the Provider
+## Register the Provider Type
 
-### Client-Side Registration
-
-Update the monitoring provider registry:
-
-```typescript {% title="packages/monitoring/api/src/components/provider.tsx" %}
-import { lazy } from 'react';
-import { createRegistry } from '@kit/shared/registry';
-import {
-  MonitoringProvider as MonitoringProviderType,
-  getMonitoringProvider,
-} from '../get-monitoring-provider';
-
-type ProviderComponent = {
-  default: React.ComponentType<React.PropsWithChildren>;
-};
-
-const provider = getMonitoringProvider();
-
-const Provider = provider
-  ? lazy(() => monitoringProviderRegistry.get(provider))
-  : null;
-
-const monitoringProviderRegistry = createRegistry<
-  ProviderComponent,
-  NonNullable<MonitoringProviderType>
->();
-
-// Existing Sentry registration
-monitoringProviderRegistry.register('sentry', async () => {
-  const { SentryProvider } = await import('@kit/sentry/provider');
-  return {
-    default: function SentryProviderWrapper({ children }) {
-      return <SentryProvider>{children}</SentryProvider>;
-    },
-  };
-});
-
-// Add LogRocket registration
-monitoringProviderRegistry.register('logrocket', async () => {
-  const { LogRocketProvider } = await import('@kit/logrocket/provider');
-  return {
-    default: function LogRocketProviderWrapper({ children }) {
-      return <LogRocketProvider>{children}</LogRocketProvider>;
-    },
-  };
-});
-```
-
-### Add Provider Type
-
-Update the provider enum:
+Update the provider enum so `NEXT_PUBLIC_MONITORING_PROVIDER=logrocket` validates:
 
 ```typescript {% title="packages/monitoring/api/src/get-monitoring-provider.ts" %}
-import * as z from 'zod';
-
 const MONITORING_PROVIDERS = [
   'sentry',
   'logrocket', // Add your provider
   '',
 ] as const;
-
-export const MONITORING_PROVIDER = z
-  .enum(MONITORING_PROVIDERS)
-  .optional()
-  .transform((value) => value || undefined);
-
-export type MonitoringProvider = z.output<typeof MONITORING_PROVIDER>;
-
-export function getMonitoringProvider() {
-  const result = MONITORING_PROVIDER.safeParse(process.env.NEXT_PUBLIC_MONITORING_PROVIDER);
-
-  if (result.success) {
-    return result.data;
-  }
-
-  return undefined;
-}
 ```
 
-### Create the Provider Component
+## Register the React Provider
+
+The React provider injects your `MonitoringService` into the `MonitoringContext` so `useMonitoring` / `useCaptureException` can reach it from client components:
 
 ```typescript {% title="packages/monitoring/logrocket/src/provider.tsx" %}
 import { MonitoringContext } from '@kit/monitoring-core';
@@ -198,48 +114,93 @@ export function LogRocketProvider({ children }: React.PropsWithChildren) {
 }
 ```
 
-## Server-Side Configuration
+```typescript {% title="packages/monitoring/api/src/components/provider.tsx" %}
+monitoringProviderRegistry.register('logrocket', async () => {
+  const { LogRocketProvider } = await import('@kit/logrocket/provider');
 
-Register the provider for server-side error capture:
+  return {
+    default: function LogRocketProviderWrapper({ children }: React.PropsWithChildren) {
+      return <LogRocketProvider>{children}</LogRocketProvider>;
+    },
+  };
+});
+```
+
+## Register the Server Service
+
+Used anywhere code calls `getServerMonitoringService()` (Server Actions, Route Handlers, jobs):
 
 ```typescript {% title="packages/monitoring/api/src/services/get-server-monitoring-service.ts" %}
-import {
-  ConsoleMonitoringService,
-  MonitoringService,
-} from '@kit/monitoring-core';
-import { createRegistry } from '@kit/shared/registry';
-import {
-  MonitoringProvider,
-  getMonitoringProvider,
-} from '../get-monitoring-provider';
-
-const serverMonitoringRegistry = createRegistry<
-  MonitoringService,
-  NonNullable<MonitoringProvider>
->();
-
-// Existing Sentry registration
-serverMonitoringRegistry.register('sentry', async () => {
-  const { SentryMonitoringService } = await import('@kit/sentry');
-  return new SentryMonitoringService();
-});
-
-// Add LogRocket registration
 serverMonitoringRegistry.register('logrocket', async () => {
   const { LogRocketMonitoringService } = await import('@kit/logrocket');
+
   return new LogRocketMonitoringService();
 });
-
-export async function getServerMonitoringService() {
-  const provider = getMonitoringProvider();
-
-  if (!provider) {
-    return new ConsoleMonitoringService();
-  }
-
-  return serverMonitoringRegistry.get(provider);
-}
 ```
+
+## Register the Server Instrumentation
+
+This is the entry that initializes your SDK on the server and forwards Next.js request errors. **`onRequestError` is required** — without it, every server error is dropped (the client `error.tsx` already skips reports for errors with a `digest`).
+
+```typescript {% title="packages/monitoring/api/src/instrumentation.ts" %}
+instrumentationRegistry.register('logrocket', async () => {
+  const { initializeLogRocketServerClient } = await import(
+    '@kit/logrocket/config/server'
+  );
+
+  return {
+    register: () => {
+      initializeLogRocketServerClient({
+        appId: process.env.LOGROCKET_APP_ID,
+      });
+    },
+    onRequestError: async (error, request, context) => {
+      const { getServerMonitoringService } = await import(
+        '../services/get-server-monitoring-service'
+      );
+
+      const service = await getServerMonitoringService();
+
+      await service.captureException(error as Error, {}, {
+        path: request.path,
+        headers: request.headers,
+        method: request.method,
+        routePath: context.routePath,
+      });
+    },
+  };
+});
+```
+
+If your SDK provides a built-in Next.js request-error handler (the way `@sentry/nextjs` exposes `captureRequestError`), use it directly — it will produce richer context than a hand-rolled forward.
+
+## Register the Client Instrumentation
+
+The client instrumentation entry initializes the browser SDK and provides a `captureException` that the provider-agnostic global handlers in `instrumentation-client.ts` will call. **Do not register your own `window.onerror` / `unhandledrejection` listeners** — the monitoring layer owns those, and adding more will double-report. If your SDK installs its own by default (e.g. Sentry's `GlobalHandlers`), disable that integration.
+
+```typescript {% title="packages/monitoring/api/src/instrumentation-client.ts" %}
+clientInstrumentationRegistry.register('logrocket', async () => {
+  const [{ initializeLogRocketBrowserClient }, LogRocket] = await Promise.all([
+    import('@kit/logrocket/config/client'),
+    import('logrocket'),
+  ]);
+
+  return {
+    init: () => {
+      initializeLogRocketBrowserClient({
+        appId: process.env.NEXT_PUBLIC_LOGROCKET_APP_ID,
+      });
+    },
+    captureException: (error, mechanism) => {
+      LogRocket.captureException(error as Error, {
+        tags: { mechanism },
+      });
+    },
+  };
+});
+```
+
+The `mechanism` argument is one of `onerror`, `onunhandledrejection`, or `react-error-boundary` — useful for telling unhandled rejections from React boundary errors in your dashboard.
 
 ## Environment Variables
 
@@ -255,32 +216,19 @@ NEXT_PUBLIC_LOGROCKET_APP_ID=your-org/your-app
 
 ## Example: Datadog Integration
 
-Here's a complete example for Datadog RUM:
+Here's a complete example for Datadog RUM. The service is a thin wrapper; init lives in the client instrumentation entry below.
 
 ```typescript {% title="packages/monitoring/datadog/src/datadog-monitoring.service.ts" %}
 import { datadogRum } from '@datadog/browser-rum';
 import { MonitoringService } from '@kit/monitoring-core';
 
 export class DatadogMonitoringService implements MonitoringService {
-  private readonly readyPromise: Promise<unknown>;
-  private readyResolver?: (value?: unknown) => void;
-
-  constructor() {
-    this.readyPromise = new Promise(
-      (resolve) => (this.readyResolver = resolve),
-    );
-
-    void this.initialize();
-  }
-
-  async ready() {
-    return this.readyPromise;
+  ready() {
+    return Promise.resolve();
   }
 
   captureException(error: Error, extra?: Record<string, unknown>) {
-    datadogRum.addError(error, {
-      ...extra,
-    });
+    datadogRum.addError(error, { ...extra });
   }
 
   captureEvent(event: string, extra?: Record<string, unknown>) {
@@ -294,38 +242,40 @@ export class DatadogMonitoringService implements MonitoringService {
       name: user.name,
     });
   }
-
-  private async initialize() {
-    if (typeof window === 'undefined') {
-      this.readyResolver?.();
-      return;
-    }
-
-    datadogRum.init({
-      applicationId: process.env.NEXT_PUBLIC_DATADOG_APP_ID!,
-      clientToken: process.env.NEXT_PUBLIC_DATADOG_CLIENT_TOKEN!,
-      site: process.env.NEXT_PUBLIC_DATADOG_SITE ?? 'datadoghq.com',
-      service: process.env.NEXT_PUBLIC_DATADOG_SERVICE ?? 'my-saas',
-      env: process.env.NEXT_PUBLIC_DATADOG_ENV ?? 'production',
-      sessionSampleRate: 100,
-      sessionReplaySampleRate: 20,
-      trackUserInteractions: true,
-      trackResources: true,
-      trackLongTasks: true,
-    });
-
-    this.readyResolver?.();
-  }
 }
 ```
 
+```typescript {% title="packages/monitoring/datadog/src/datadog.client.config.ts" %}
+import { datadogRum } from '@datadog/browser-rum';
+
+export function initializeDatadogBrowserClient() {
+  datadogRum.init({
+    applicationId: process.env.NEXT_PUBLIC_DATADOG_APP_ID!,
+    clientToken: process.env.NEXT_PUBLIC_DATADOG_CLIENT_TOKEN!,
+    site: process.env.NEXT_PUBLIC_DATADOG_SITE ?? 'datadoghq.com',
+    service: process.env.NEXT_PUBLIC_DATADOG_SERVICE ?? 'my-saas',
+    env: process.env.NEXT_PUBLIC_DATADOG_ENV ?? 'production',
+    sessionSampleRate: 100,
+    sessionReplaySampleRate: 20,
+    trackUserInteractions: true,
+    trackResources: true,
+    // Datadog can capture its own unhandled errors; turn it off because the
+    // monitoring layer already installs `window.onerror` / `unhandledrejection`.
+    forwardErrorsToLogs: false,
+  });
+}
+```
+
+Then wire the client instrumentation and React provider as shown in the registration sections above.
+
 ## Common Gotchas
 
-1. **Browser-only initialization** - Check `typeof window !== 'undefined'` before accessing browser APIs.
-2. **Ready state** - The `ready()` method must resolve after initialization completes. Server contexts call `await service.ready()` before capturing.
-3. **Provider enum** - Remember to add your provider to the `MONITORING_PROVIDERS` array in `get-monitoring-provider.ts`.
-4. **Lazy loading** - Providers are loaded lazily through the registry. Don't import the monitoring service directly in your main bundle.
-5. **Server vs client** - Some providers (like LogRocket) are browser-only. Return a no-op or console fallback for server contexts.
+1. **Don't double-install global handlers** — `@kit/monitoring/instrumentation-client` owns `window.onerror` and `unhandledrejection`. Disable any equivalent feature in your SDK's options (Sentry's `GlobalHandlers`, Datadog's `forwardErrorsToLogs`, etc.).
+2. **`onRequestError` is required** — the client error boundary skips reports for errors that carry a `digest`. Without a server-side `onRequestError`, those errors disappear.
+3. **Don't init from the service constructor** — initialization is owned by `instrumentation.ts` / `instrumentation-client.ts`. The service should be stateless.
+4. **Provider enum** — every new provider must be added to `MONITORING_PROVIDERS` in `get-monitoring-provider.ts`, otherwise Zod will reject the env var.
+5. **Lazy loading** — providers are loaded lazily through registries. Don't statically import provider SDKs from shared code, or you'll pull them into every bundle.
+6. **Browser-only SDKs** — providers like LogRocket can't run on the server. Either guard the server registration (return a no-op service) or skip the registration entirely.
 
 This monitoring system is part of the [Next.js Supabase SaaS Kit](/next-supabase-turbo).
 

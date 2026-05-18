@@ -92,35 +92,53 @@ The `MonitoringProvider` component wraps your app and captures uncaught exceptio
 
 ### Server-side exceptions
 
-Next.js 15+ includes an instrumentation hook that captures server errors automatically. Makerkit hooks into this via `instrumentation.ts`:
+Next.js exposes an instrumentation hook that fires for server errors. Makerkit hooks into it via `apps/web/instrumentation.ts`, which is a thin shim that forwards to the configured provider:
 
 ```typescript title="apps/web/instrumentation.ts"
 import { type Instrumentation } from 'next';
 
+export async function register() {
+  const { registerMonitoringInstrumentation } = await import(
+    '@kit/monitoring/instrumentation'
+  );
+
+  await registerMonitoringInstrumentation();
+}
+
 export const onRequestError: Instrumentation.onRequestError = async (
-  err,
+  error,
   request,
   context,
 ) => {
-  const { getServerMonitoringService } = await import('@kit/monitoring/server');
-
-  const service = await getServerMonitoringService();
-  await service.ready();
-
-  await service.captureException(
-    err as Error,
-    {},
-    {
-      path: request.path,
-      headers: request.headers,
-      method: request.method,
-      routePath: context.routePath,
-    },
+  const { onRequestError: handler } = await import(
+    '@kit/monitoring/instrumentation'
   );
+
+  return handler(error, request, context);
 };
 ```
 
 This captures errors from Server Components, Server Actions, Route Handlers, and Middleware.
+
+### Client-side exceptions
+
+The browser counterpart lives at `apps/web/instrumentation-client.ts`, a Next.js convention file that runs before hydration:
+
+```typescript title="apps/web/instrumentation-client.ts"
+import { registerClientMonitoringInstrumentation } from '@kit/monitoring/instrumentation-client';
+
+registerClientMonitoringInstrumentation();
+```
+
+`registerClientMonitoringInstrumentation` installs provider-agnostic `window.onerror` and `unhandledrejection` listeners, then lazily loads the configured provider in parallel with hydration. Errors that fire before the provider chunk is ready are buffered and replayed.
+
+### Avoiding duplicate reports
+
+A server error returned to the client carries a `digest` property. Because `onRequestError` already captured it, your `error.tsx` boundary should skip the client report when `digest` is present — pass `null` to `useCaptureException`:
+
+```tsx title="apps/web/app/[locale]/error.tsx"
+useCaptureException(error.digest ? null : error);
+```
 
 ## Manually Capturing Exceptions
 
@@ -223,80 +241,17 @@ Makerkit automatically identifies users when they sign in if you've configured t
 
 ## Adding a Custom Monitoring Provider
 
-To add a provider not included in Makerkit:
+Adding a provider involves five registration points — see the [Custom Provider guide](/docs/next-supabase-turbo/monitoring/custom-monitoring-provider) for the full walkthrough. The short version:
 
-### 1. Implement the MonitoringService interface
+1. Add the provider name to the `MONITORING_PROVIDERS` enum in `get-monitoring-provider.ts`.
+2. Register a server `MonitoringService` in `services/get-server-monitoring-service.ts`.
+3. Register a React `MonitoringProvider` component in `components/provider.tsx`.
+4. Register a server instrumentation entry in `instrumentation.ts` — both `register` (to init the SDK) and `onRequestError` (to forward Next.js request errors) are required.
+5. Register a client instrumentation entry in `instrumentation-client.ts` — `init` and `captureException`.
 
-```typescript title="packages/monitoring/my-provider/src/my-provider.service.ts"
-import { MonitoringService } from '@kit/monitoring-core';
-
-export class MyProviderMonitoringService implements MonitoringService {
-  private readyPromise: Promise<void>;
-  private readyResolver?: () => void;
-
-  constructor() {
-    this.readyPromise = new Promise((resolve) => {
-      this.readyResolver = resolve;
-    });
-
-    this.initialize();
-  }
-
-  async ready() {
-    return this.readyPromise;
-  }
-
-  captureException(error: Error, extra?: Record<string, unknown>) {
-    // Send to your monitoring service
-    myProviderSDK.captureException(error, { extra });
-  }
-
-  captureEvent(event: string, extra?: Record<string, unknown>) {
-    myProviderSDK.captureEvent(event, extra);
-  }
-
-  identifyUser(user: { id: string }) {
-    myProviderSDK.setUser(user);
-  }
-
-  private initialize() {
-    // Initialize your SDK
-    myProviderSDK.init({ dsn: process.env.MY_PROVIDER_DSN });
-    this.readyResolver?.();
-  }
-}
-```
-
-### 2. Register the provider
-
-Add your provider to the monitoring registries:
-
-```typescript title="packages/monitoring/api/src/get-monitoring-provider.ts"
-const MONITORING_PROVIDERS = [
-  'sentry',
-  'my-provider', // Add your provider
-  '',
-] as const;
-```
-
-```typescript title="packages/monitoring/api/src/services/get-server-monitoring-service.ts"
-serverMonitoringRegistry.register('my-provider', async () => {
-  const { MyProviderMonitoringService } = await import('@kit/my-provider');
-  return new MyProviderMonitoringService();
-});
-```
-
-```typescript title="packages/monitoring/api/src/components/provider.tsx"
-monitoringProviderRegistry.register('my-provider', async () => {
-  const { MyProviderProvider } = await import('@kit/my-provider/provider');
-
-  return {
-    default: function MyProviderWrapper({ children }: React.PropsWithChildren) {
-      return <MyProviderProvider>{children}</MyProviderProvider>;
-    },
-  };
-});
-```
+{% alert type="warning" title="onRequestError is not optional" %}
+The client error boundary skips re-reporting any error that carries a `digest` because the server already captured it via `onRequestError`. A custom provider that omits this hook will silently drop every server error.
+{% /alert %}
 
 {% alert type="default" title="Telegram notifications" %}
 We wrote a tutorial showing how to add Telegram notifications for error monitoring: [Send SaaS errors to Telegram](/blog/tutorials/telegram-saas-error-monitoring).
