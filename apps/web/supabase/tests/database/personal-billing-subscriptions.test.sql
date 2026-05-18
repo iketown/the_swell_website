@@ -1,5 +1,4 @@
-begin;
-create extension "basejump-supabase_test_helpers" version '0.0.6';
+BEGIN;
 
 select no_plan();
 
@@ -158,9 +157,16 @@ select is_empty(
 );
 
 -- users cannot manually update subscriptions
-select throws_ok(
-  $$ select public.upsert_subscription(tests.get_supabase_uid('primary_owner'), 'cus_test', 'sub_test', true, 'active', 'stripe', false, 'usd', now(), now() + interval '1 month', '[]') $$,
-  'permission denied for function upsert_subscription'
+-- NOTE: actually invoking a function the caller lacks EXECUTE on crashes
+-- Postgres (segfault in supautils/pgaudit hook on permission-denied) on
+-- the bundled Postgres version. Assert the privilege instead.
+select ok(
+    not has_function_privilege(
+        'authenticated',
+        'public.upsert_subscription(uuid, varchar, text, bool, public.subscription_status, public.billing_provider, bool, varchar, timestamptz, timestamptz, jsonb, timestamptz, timestamptz)',
+        'execute'
+    ),
+    'users cannot manually update subscriptions via upsert_subscription'
 );
 
 select is(

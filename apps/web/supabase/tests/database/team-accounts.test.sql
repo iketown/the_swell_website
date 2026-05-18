@@ -1,6 +1,4 @@
-begin;
-
-create extension "basejump-supabase_test_helpers" version '0.0.6';
+BEGIN;
 
 select
     no_plan();
@@ -475,13 +473,15 @@ END $$;
 -- Make sure we're using the right permissions
 select makerkit.authenticate_as('permtest2');
 
--- Changed to match actual error behavior - permission denied is expected
-select throws_ok(
-    $$ SELECT public.create_invitation(
-        (SELECT id FROM public.accounts WHERE slug = 'permteam'),
-        'test_invite@example.com',
-        'member') $$,
-    'permission denied for function create_invitation',
+-- NOTE: invoking a function the caller lacks EXECUTE on crashes Postgres
+-- (segfault in supautils/pgaudit hook on permission-denied) on the bundled
+-- Postgres version. Assert the privilege instead.
+select ok(
+    not has_function_privilege(
+        'authenticated',
+        'public.create_invitation(uuid, text, varchar)',
+        'execute'
+    ),
     'Admin should get permission denied when trying to create invitations'
 );
 
@@ -494,13 +494,13 @@ select isnt_empty(
 -- Test 2: Verify regular member cannot manage invitations
 select makerkit.authenticate_as('permtest3');
 
--- Changed to match actual error behavior
-select throws_ok(
-    $$ SELECT public.create_invitation(
-        (SELECT id FROM public.accounts WHERE slug = 'permteam'),
-        'test_invite@example.com',
-        'member') $$,
-    'permission denied for function create_invitation',
+-- see note above: assert the privilege rather than invoking the function.
+select ok(
+    not has_function_privilege(
+        'authenticated',
+        'public.create_invitation(uuid, text, varchar)',
+        'execute'
+    ),
     'Member should not be able to create invitations (permission denied)'
 );
 
@@ -821,12 +821,15 @@ select
 select
     makerkit.authenticate_as('securitytest1');
 
-select
-    throws_ok(
-        $$ select public.create_team_account('SecurityTeam', tests.get_supabase_uid('securitytest1')) $$,
-        'permission denied for function create_team_account',
-        'Authenticated role should not be able to execute create_team_account directly'
-    );
+-- see note above: assert the privilege rather than invoking the function.
+select ok(
+    not has_function_privilege(
+        'authenticated',
+        'public.create_team_account(text, uuid, text)',
+        'execute'
+    ),
+    'Authenticated role should not be able to execute create_team_account directly'
+);
 
 select
     *

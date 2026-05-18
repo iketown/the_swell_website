@@ -1,5 +1,4 @@
-begin;
-create extension "basejump-supabase_test_helpers" version '0.0.6';
+BEGIN;
 
 select no_plan(); -- Use no_plan for flexibility
 
@@ -13,16 +12,26 @@ select tests.create_supabase_user('token_verifier', 'verifier@example.com');
 -- Test 1.1: Regular users cannot create nonces directly
 select tests.authenticate_as('token_creator');
 
-select throws_ok(
-    $$ select public.create_nonce(auth.uid(), 'password-reset', 3600) $$,
-    'permission denied for function create_nonce',
+-- NOTE: actually invoking a function the caller lacks EXECUTE on currently
+-- crashes Postgres (segfault in supautils/pgaudit hook on
+-- permission-denied) on the bundled Postgres version. Assert the privilege
+-- instead — same intent, no crash.
+select ok(
+    not has_function_privilege(
+        'authenticated',
+        'public.create_nonce(uuid, text, integer, jsonb, text[], boolean)',
+        'execute'
+    ),
     'Regular users should not be able to create nonces directly'
 );
 
 -- Test 1.2: Regular users cannot revoke nonces
-select throws_ok(
-    $$ select public.revoke_nonce('00000000-0000-0000-0000-000000000000'::uuid, 'test') $$,
-    'permission denied for function revoke_nonce',
+select ok(
+    not has_function_privilege(
+        'authenticated',
+        'public.revoke_nonce(uuid, text)',
+        'execute'
+    ),
     'Regular users should not be able to revoke tokens'
 );
 
@@ -365,9 +374,13 @@ select
         'revoke_nonce function should exist'
     );
 
-select throws_ok(
-    $$ select public.revoke_nonce('00000000-0000-0000-0000-000000000000'::uuid, 'test reason') $$,
-    'permission denied for function revoke_nonce',
+-- see note at top: assert the privilege rather than invoking the function.
+select ok(
+    not has_function_privilege(
+        'authenticated',
+        'public.revoke_nonce(uuid, text)',
+        'execute'
+    ),
     'Regular users should not be able to revoke tokens'
 );
 
@@ -428,9 +441,13 @@ select is(
 -- Test 4.1: Verify permission on get_nonce_status
 select tests.authenticate_as('token_creator');
 
-select throws_ok(
-    $$ select public.get_nonce_status('00000000-0000-0000-0000-000000000000'::uuid) $$,
-    'permission denied for function get_nonce_status',
+-- see note at top: assert the privilege rather than invoking the function.
+select ok(
+    not has_function_privilege(
+        'authenticated',
+        'public.get_nonce_status(uuid)',
+        'execute'
+    ),
     'Regular users should not be able to check token status'
 );
 

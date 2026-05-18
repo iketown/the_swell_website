@@ -93,8 +93,6 @@ jobs:
 
       - name: Supabase CLI
         uses: supabase/setup-cli@v2
-        with:
-          version: 2.84.2
 
       - name: Supabase Server
         run: pnpm run supabase:web:start -- -x studio,migra,deno-relay,pgadmin-schema-diff,imgproxy,logflare

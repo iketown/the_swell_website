@@ -1,5 +1,4 @@
-begin;
-create extension "basejump-supabase_test_helpers" version '0.0.6';
+BEGIN;
 
 select no_plan();
 
@@ -15,12 +14,16 @@ select tests.create_supabase_user('test', 'test@supabase.com');
 select makerkit.authenticate_as('primary_owner');
 
 -- only the service role can transfer ownership
-select throws_ok(
-    $$ select public.transfer_team_account_ownership(
-        makerkit.get_account_id_by_slug('makerkit'),
-        tests.get_supabase_uid('custom')
-    ) $$,
-    'permission denied for function transfer_team_account_ownership'
+-- NOTE: invoking a function the caller lacks EXECUTE on crashes Postgres
+-- (segfault in supautils/pgaudit hook on permission-denied) on the bundled
+-- Postgres version. Assert the privilege instead.
+select ok(
+    not has_function_privilege(
+        'authenticated',
+        'public.transfer_team_account_ownership(uuid, uuid)',
+        'execute'
+    ),
+    'only the service role can call transfer_team_account_ownership'
 );
 
 set local role service_role;
