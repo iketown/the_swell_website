@@ -270,6 +270,193 @@ export type Database = {
           },
         ]
       }
+      member_private_financial: {
+        Row: {
+          account_id: string
+          address: Json | null
+          billing: Json | null
+          created_at: string
+          created_by: string | null
+          member_id: string
+          tax: Json | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          address?: Json | null
+          billing?: Json | null
+          created_at?: string
+          created_by?: string | null
+          member_id: string
+          tax?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          address?: Json | null
+          billing?: Json | null
+          created_at?: string
+          created_by?: string | null
+          member_id?: string
+          tax?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_private_financial_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_private_financial_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_private_financial_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_private_financial_account_id_member_id_fkey"
+            columns: ["account_id", "member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["account_id", "id"]
+          },
+        ]
+      }
+      members: {
+        Row: {
+          account_id: string
+          account_role: string
+          bio: string | null
+          candidate_notes: string | null
+          capability_notes: string | null
+          created_at: string
+          created_by: string | null
+          default_instrument:
+            | Database["public"]["Enums"]["instrument_slot"]
+            | null
+          default_vocal_slot: Database["public"]["Enums"]["vocal_slot"] | null
+          display_name: string
+          email: string
+          id: string
+          instrument_capabilities: Database["public"]["Enums"]["instrument_slot"][]
+          legal_name: string | null
+          member_type: Database["public"]["Enums"]["member_type"]
+          phone: string | null
+          photos: Json
+          role_label: string | null
+          shirt_size: string | null
+          shoe_size: string | null
+          status: Database["public"]["Enums"]["member_status"]
+          suit_size: string | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string | null
+          vocal_capabilities: Database["public"]["Enums"]["vocal_slot"][]
+        }
+        Insert: {
+          account_id: string
+          account_role?: string
+          bio?: string | null
+          candidate_notes?: string | null
+          capability_notes?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_instrument?:
+            | Database["public"]["Enums"]["instrument_slot"]
+            | null
+          default_vocal_slot?: Database["public"]["Enums"]["vocal_slot"] | null
+          display_name: string
+          email: string
+          id?: string
+          instrument_capabilities?: Database["public"]["Enums"]["instrument_slot"][]
+          legal_name?: string | null
+          member_type?: Database["public"]["Enums"]["member_type"]
+          phone?: string | null
+          photos?: Json
+          role_label?: string | null
+          shirt_size?: string | null
+          shoe_size?: string | null
+          status?: Database["public"]["Enums"]["member_status"]
+          suit_size?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string | null
+          vocal_capabilities?: Database["public"]["Enums"]["vocal_slot"][]
+        }
+        Update: {
+          account_id?: string
+          account_role?: string
+          bio?: string | null
+          candidate_notes?: string | null
+          capability_notes?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_instrument?:
+            | Database["public"]["Enums"]["instrument_slot"]
+            | null
+          default_vocal_slot?: Database["public"]["Enums"]["vocal_slot"] | null
+          display_name?: string
+          email?: string
+          id?: string
+          instrument_capabilities?: Database["public"]["Enums"]["instrument_slot"][]
+          legal_name?: string | null
+          member_type?: Database["public"]["Enums"]["member_type"]
+          phone?: string | null
+          photos?: Json
+          role_label?: string | null
+          shirt_size?: string | null
+          shoe_size?: string | null
+          status?: Database["public"]["Enums"]["member_status"]
+          suit_size?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string | null
+          vocal_capabilities?: Database["public"]["Enums"]["vocal_slot"][]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "members_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "members_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "members_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "members_account_role_fkey"
+            columns: ["account_role"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
       nonces: {
         Row: {
           client_token: string
@@ -491,6 +678,170 @@ export type Database = {
           },
         ]
       }
+      part_files: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: Database["public"]["Enums"]["part_file_kind"]
+          label: string
+          mime_type: string
+          order_index: number
+          part_id: string
+          size_bytes: number | null
+          storage_path: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["part_file_kind"]
+          label: string
+          mime_type: string
+          order_index?: number
+          part_id: string
+          size_bytes?: number | null
+          storage_path: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["part_file_kind"]
+          label?: string
+          mime_type?: string
+          order_index?: number
+          part_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "part_files_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_files_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_files_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "part_files_account_id_part_id_fkey"
+            columns: ["account_id", "part_id"]
+            isOneToOne: false
+            referencedRelation: "parts"
+            referencedColumns: ["account_id", "id"]
+          },
+        ]
+      }
+      parts: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          default_member_id: string | null
+          id: string
+          is_lead: boolean
+          label: string | null
+          notes: string | null
+          order_index: number
+          slot: Database["public"]["Enums"]["part_slot"]
+          song_id: string
+          type: Database["public"]["Enums"]["part_type"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          default_member_id?: string | null
+          id?: string
+          is_lead?: boolean
+          label?: string | null
+          notes?: string | null
+          order_index?: number
+          slot: Database["public"]["Enums"]["part_slot"]
+          song_id: string
+          type: Database["public"]["Enums"]["part_type"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          default_member_id?: string | null
+          id?: string
+          is_lead?: boolean
+          label?: string | null
+          notes?: string | null
+          order_index?: number
+          slot?: Database["public"]["Enums"]["part_slot"]
+          song_id?: string
+          type?: Database["public"]["Enums"]["part_type"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parts_account_id_default_member_id_fkey"
+            columns: ["account_id", "default_member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["account_id", "id"]
+          },
+          {
+            foreignKeyName: "parts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_account_id_song_id_fkey"
+            columns: ["account_id", "song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["account_id", "id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           id: number
@@ -531,6 +882,82 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      songs: {
+        Row: {
+          account_id: string
+          bpm: number | null
+          created_at: string
+          created_by: string | null
+          duration_sec: number | null
+          era: string | null
+          id: string
+          notes: string | null
+          original_artist: string | null
+          song_key: string | null
+          status: Database["public"]["Enums"]["song_status"]
+          title: string
+          updated_at: string
+          updated_by: string | null
+          year_recorded: number | null
+        }
+        Insert: {
+          account_id: string
+          bpm?: number | null
+          created_at?: string
+          created_by?: string | null
+          duration_sec?: number | null
+          era?: string | null
+          id?: string
+          notes?: string | null
+          original_artist?: string | null
+          song_key?: string | null
+          status?: Database["public"]["Enums"]["song_status"]
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          year_recorded?: number | null
+        }
+        Update: {
+          account_id?: string
+          bpm?: number | null
+          created_at?: string
+          created_by?: string | null
+          duration_sec?: number | null
+          era?: string | null
+          id?: string
+          notes?: string | null
+          original_artist?: string | null
+          song_key?: string | null
+          status?: Database["public"]["Enums"]["song_status"]
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          year_recorded?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "songs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "songs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "songs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscription_items: {
         Row: {
@@ -743,7 +1170,7 @@ export type Database = {
         Returns: Json
       }
       create_team_account: {
-        Args: { account_name: string; account_slug?: string }
+        Args: { account_name: string; account_slug?: string; user_id: string }
         Returns: {
           created_at: string | null
           created_by: string | null
@@ -955,9 +1382,26 @@ export type Database = {
         | "members.manage"
         | "invites.manage"
       billing_provider: "stripe" | "lemon-squeezy" | "paddle"
+      instrument_slot: "rhy_gtr" | "lead_gtr" | "keys" | "bass" | "drums"
+      member_status: "candidate" | "active" | "inactive" | "alumni"
+      member_type: "performer" | "crew"
       notification_channel: "in_app" | "email"
       notification_type: "info" | "warning" | "error"
+      part_file_kind: "guide_audio" | "chart_pdf"
+      part_slot:
+        | "vocal_1"
+        | "vocal_2"
+        | "vocal_3"
+        | "vocal_4"
+        | "vocal_5"
+        | "rhy_gtr"
+        | "lead_gtr"
+        | "keys"
+        | "bass"
+        | "drums"
+      part_type: "vocal" | "instrumental"
       payment_status: "pending" | "succeeded" | "failed"
+      song_status: "active" | "learning" | "candidate" | "retired"
       subscription_item_type: "flat" | "per_seat" | "metered"
       subscription_status:
         | "active"
@@ -968,6 +1412,7 @@ export type Database = {
         | "incomplete"
         | "incomplete_expired"
         | "paused"
+      vocal_slot: "vocal_1" | "vocal_2" | "vocal_3" | "vocal_4" | "vocal_5"
     }
     CompositeTypes: {
       invitation: {
@@ -1193,7 +1638,6 @@ export type Database = {
           created_at: string | null
           id: string
           last_accessed_at: string | null
-          level: number | null
           metadata: Json | null
           name: string | null
           owner: string | null
@@ -1208,7 +1652,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           last_accessed_at?: string | null
-          level?: number | null
           metadata?: Json | null
           name?: string | null
           owner?: string | null
@@ -1223,7 +1666,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           last_accessed_at?: string | null
-          level?: number | null
           metadata?: Json | null
           name?: string | null
           owner?: string | null
@@ -1243,38 +1685,6 @@ export type Database = {
           },
         ]
       }
-      prefixes: {
-        Row: {
-          bucket_id: string
-          created_at: string | null
-          level: number
-          name: string
-          updated_at: string | null
-        }
-        Insert: {
-          bucket_id: string
-          created_at?: string | null
-          level?: number
-          name: string
-          updated_at?: string | null
-        }
-        Update: {
-          bucket_id?: string
-          created_at?: string | null
-          level?: number
-          name?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prefixes_bucketId_fkey"
-            columns: ["bucket_id"]
-            isOneToOne: false
-            referencedRelation: "buckets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       s3_multipart_uploads: {
         Row: {
           bucket_id: string
@@ -1282,6 +1692,7 @@ export type Database = {
           id: string
           in_progress_size: number
           key: string
+          metadata: Json | null
           owner_id: string | null
           upload_signature: string
           user_metadata: Json | null
@@ -1293,6 +1704,7 @@ export type Database = {
           id: string
           in_progress_size?: number
           key: string
+          metadata?: Json | null
           owner_id?: string | null
           upload_signature: string
           user_metadata?: Json | null
@@ -1304,6 +1716,7 @@ export type Database = {
           id?: string
           in_progress_size?: number
           key?: string
+          metadata?: Json | null
           owner_id?: string | null
           upload_signature?: string
           user_metadata?: Json | null
@@ -1422,28 +1835,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_prefixes: {
-        Args: { _bucket_id: string; _name: string }
-        Returns: undefined
+      allow_any_operation: {
+        Args: { expected_operations: string[] }
+        Returns: boolean
+      }
+      allow_only_operation: {
+        Args: { expected_operation: string }
+        Returns: boolean
       }
       can_insert_object: {
         Args: { bucketid: string; metadata: Json; name: string; owner: string }
         Returns: undefined
       }
-      delete_leaf_prefixes: {
-        Args: { bucket_ids: string[]; names: string[] }
-        Returns: undefined
-      }
-      delete_prefix: {
-        Args: { _bucket_id: string; _name: string }
-        Returns: boolean
-      }
       extension: { Args: { name: string }; Returns: string }
       filename: { Args: { name: string }; Returns: string }
       foldername: { Args: { name: string }; Returns: string[] }
-      get_level: { Args: { name: string }; Returns: number }
-      get_prefix: { Args: { name: string }; Returns: string }
-      get_prefixes: { Args: { name: string }; Returns: string[] }
+      get_common_prefix: {
+        Args: { p_delimiter: string; p_key: string; p_prefix: string }
+        Returns: string
+      }
       get_size_by_bucket: {
         Args: never
         Returns: {
@@ -1468,64 +1878,25 @@ export type Database = {
       }
       list_objects_with_delimiter: {
         Args: {
-          bucket_id: string
+          _bucket_id: string
           delimiter_param: string
           max_keys?: number
           next_token?: string
           prefix_param: string
+          sort_order?: string
           start_after?: string
         }
         Returns: {
+          created_at: string
           id: string
+          last_accessed_at: string
           metadata: Json
           name: string
           updated_at: string
         }[]
-      }
-      lock_top_prefixes: {
-        Args: { bucket_ids: string[]; names: string[] }
-        Returns: undefined
       }
       operation: { Args: never; Returns: string }
-      search:
-        | {
-            Args: {
-              bucketname: string
-              levels?: number
-              limits?: number
-              offsets?: number
-              prefix: string
-            }
-            Returns: {
-              created_at: string
-              id: string
-              last_accessed_at: string
-              metadata: Json
-              name: string
-              updated_at: string
-            }[]
-          }
-        | {
-            Args: {
-              bucketname: string
-              levels?: number
-              limits?: number
-              offsets?: number
-              prefix: string
-              search?: string
-              sortcolumn?: string
-              sortorder?: string
-            }
-            Returns: {
-              created_at: string
-              id: string
-              last_accessed_at: string
-              metadata: Json
-              name: string
-              updated_at: string
-            }[]
-          }
-      search_legacy_v1: {
+      search: {
         Args: {
           bucketname: string
           levels?: number
@@ -1545,65 +1916,48 @@ export type Database = {
           updated_at: string
         }[]
       }
-      search_v1_optimised: {
+      search_by_timestamp: {
         Args: {
-          bucketname: string
-          levels?: number
-          limits?: number
-          offsets?: number
-          prefix: string
-          search?: string
-          sortcolumn?: string
-          sortorder?: string
+          p_bucket_id: string
+          p_level: number
+          p_limit: number
+          p_prefix: string
+          p_sort_column: string
+          p_sort_column_after: string
+          p_sort_order: string
+          p_start_after: string
         }
         Returns: {
           created_at: string
           id: string
+          key: string
           last_accessed_at: string
           metadata: Json
           name: string
           updated_at: string
         }[]
       }
-      search_v2:
-        | {
-            Args: {
-              bucket_name: string
-              levels?: number
-              limits?: number
-              prefix: string
-              start_after?: string
-            }
-            Returns: {
-              created_at: string
-              id: string
-              key: string
-              metadata: Json
-              name: string
-              updated_at: string
-            }[]
-          }
-        | {
-            Args: {
-              bucket_name: string
-              levels?: number
-              limits?: number
-              prefix: string
-              sort_column?: string
-              sort_column_after?: string
-              sort_order?: string
-              start_after?: string
-            }
-            Returns: {
-              created_at: string
-              id: string
-              key: string
-              last_accessed_at: string
-              metadata: Json
-              name: string
-              updated_at: string
-            }[]
-          }
+      search_v2: {
+        Args: {
+          bucket_name: string
+          levels?: number
+          limits?: number
+          prefix: string
+          sort_column?: string
+          sort_column_after?: string
+          sort_order?: string
+          start_after?: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          key: string
+          last_accessed_at: string
+          metadata: Json
+          name: string
+          updated_at: string
+        }[]
+      }
     }
     Enums: {
       buckettype: "STANDARD" | "ANALYTICS" | "VECTOR"
@@ -1745,9 +2099,27 @@ export const Constants = {
         "invites.manage",
       ],
       billing_provider: ["stripe", "lemon-squeezy", "paddle"],
+      instrument_slot: ["rhy_gtr", "lead_gtr", "keys", "bass", "drums"],
+      member_status: ["candidate", "active", "inactive", "alumni"],
+      member_type: ["performer", "crew"],
       notification_channel: ["in_app", "email"],
       notification_type: ["info", "warning", "error"],
+      part_file_kind: ["guide_audio", "chart_pdf"],
+      part_slot: [
+        "vocal_1",
+        "vocal_2",
+        "vocal_3",
+        "vocal_4",
+        "vocal_5",
+        "rhy_gtr",
+        "lead_gtr",
+        "keys",
+        "bass",
+        "drums",
+      ],
+      part_type: ["vocal", "instrumental"],
       payment_status: ["pending", "succeeded", "failed"],
+      song_status: ["active", "learning", "candidate", "retired"],
       subscription_item_type: ["flat", "per_seat", "metered"],
       subscription_status: [
         "active",
@@ -1759,6 +2131,7 @@ export const Constants = {
         "incomplete_expired",
         "paused",
       ],
+      vocal_slot: ["vocal_1", "vocal_2", "vocal_3", "vocal_4", "vocal_5"],
     },
   },
   storage: {

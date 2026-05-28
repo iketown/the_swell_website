@@ -1,4 +1,11 @@
-import { CreditCard, LayoutDashboard, Settings, Users } from 'lucide-react';
+import {
+  CreditCard,
+  FileAudio,
+  LayoutDashboard,
+  Music,
+  Settings,
+  Users,
+} from 'lucide-react';
 
 import { NavigationConfigSchema } from '@kit/ui/navigation-schema';
 
@@ -16,6 +23,32 @@ const getRoutes = (account: string) => [
         path: pathsConfig.app.accountHome.replace('[account]', account),
         Icon: <LayoutDashboard className={iconClasses} />,
         highlightMatch: `${pathsConfig.app.home}$`,
+      },
+    ],
+  },
+  {
+    label: 'Band',
+    children: [
+      {
+        label: 'Band Home',
+        path: createPath('/home/[account]/band', account),
+        Icon: <Music className={iconClasses} />,
+        highlightMatch: `${createPath('/home/[account]/band', account)}$`,
+      },
+      {
+        label: 'Band Members',
+        path: createPath('/home/[account]/band/members', account),
+        Icon: <Users className={iconClasses} />,
+      },
+      {
+        label: 'Songs',
+        path: createPath('/home/[account]/band/songs', account),
+        Icon: <Music className={iconClasses} />,
+      },
+      {
+        label: 'Parts',
+        path: createPath('/home/[account]/band/parts', account),
+        Icon: <FileAudio className={iconClasses} />,
       },
     ],
   },
