@@ -50,4 +50,8 @@ export class BillingPageObject {
   getStatus() {
     return this.page.locator('[data-test="current-plan-card-status-badge"]');
   }
+
+  cancellationWarning() {
+    return this.page.locator('[data-test="subscription-cancellation-warning"]');
+  }
 }

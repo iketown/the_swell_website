@@ -9,6 +9,8 @@ import featureFlagsConfig from '~/config/feature-flags.config';
 import pathsConfig from '~/config/paths.config';
 import { requireUserInServerComponent } from '~/lib/server/require-user-in-server-component';
 
+import { AuthHashStatusListener } from './_components/auth-hash-status-listener';
+
 // Show email option if password, magic link, or OTP is enabled
 const showEmailOption =
   authConfig.providers.password ||
@@ -25,7 +27,7 @@ const features = {
 const providers = authConfig.providers.oAuth;
 
 const callbackPath = pathsConfig.auth.callback;
-const accountSettingsPath = pathsConfig.app.accountSettings;
+const accountSettingsPath = pathsConfig.app.personalAccountSettings;
 
 const paths = {
   callback: callbackPath + `?next=${accountSettingsPath}`,
@@ -45,6 +47,8 @@ function PersonalAccountSettingsPage() {
 
   return (
     <div className={'flex w-full flex-1 flex-col lg:max-w-2xl'}>
+      <AuthHashStatusListener />
+
       <PersonalAccountSettingsContainer
         userId={user.id}
         features={features}

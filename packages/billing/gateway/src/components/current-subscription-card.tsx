@@ -131,7 +131,10 @@ export function CurrentSubscriptionCard({
 
         <If condition={subscription.cancel_at_period_end}>
           {() => (
-            <Alert className={alertExtras.warning}>
+            <Alert
+              className={alertExtras.warning}
+              data-test="subscription-cancellation-warning"
+            >
               <MessageCircleWarning className={'h-4 w-4'} />
 
               <AlertTitle>

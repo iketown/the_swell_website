@@ -173,9 +173,9 @@ When deploying to production, configure webhooks in the Stripe Dashboard:
 
 **Required events:**
 - `checkout.session.completed`
-- `customer.subscription.created`
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
+- `invoice.paid`
 
 **For one-off payments (optional):**
 - `checkout.session.async_payment_failed`

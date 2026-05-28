@@ -238,7 +238,8 @@ export class StripeWebhookHandlerService implements BillingWebhookHandlerService
         currency: subscription.currency,
         periodStartsAt,
         periodEndsAt,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        cancelAtPeriodEnd:
+          subscriptionPayloadBuilderService.getCancelAtPeriodEnd(subscription),
         trialStartsAt: subscription.trial_start,
         trialEndsAt: subscription.trial_end,
       });
@@ -334,7 +335,8 @@ export class StripeWebhookHandlerService implements BillingWebhookHandlerService
       currency: subscription.currency,
       periodStartsAt,
       periodEndsAt,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      cancelAtPeriodEnd:
+        subscriptionPayloadBuilderService.getCancelAtPeriodEnd(subscription),
       trialStartsAt: subscription.trial_start,
       trialEndsAt: subscription.trial_end,
     });
@@ -437,7 +439,8 @@ export class StripeWebhookHandlerService implements BillingWebhookHandlerService
       currency: subscription.currency,
       periodStartsAt,
       periodEndsAt,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      cancelAtPeriodEnd:
+        subscriptionPayloadBuilderService.getCancelAtPeriodEnd(subscription),
       trialStartsAt: subscription.trial_start,
       trialEndsAt: subscription.trial_end,
     });

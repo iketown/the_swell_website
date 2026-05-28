@@ -114,6 +114,28 @@ class StripeSubscriptionPayloadBuilderService {
     // if it doesn't, we use the subscription item end (Stripe 18+)
     return subscription.items.data[0]!.current_period_end;
   }
+
+  /**
+   * @name getCancelAtPeriodEnd
+   * @description Determine whether the subscription is scheduled for
+   * cancellation. In Stripe's flexible billing mode (default for API
+   * versions 2025-09-30.clover and later), portal-initiated cancellations
+   * may set `cancel_at` to a future timestamp while leaving
+   * `cancel_at_period_end` as `false`. Treat either signal as cancellation.
+   */
+  getCancelAtPeriodEnd(subscription: Stripe.Subscription) {
+    if (subscription.cancel_at_period_end) {
+      return true;
+    }
+
+    if (subscription.cancel_at === null) {
+      return false;
+    }
+
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+
+    return subscription.cancel_at > nowInSeconds;
+  }
 }
 
 function getISOString(date: number | null) {
