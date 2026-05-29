@@ -49,6 +49,10 @@ const CreateMemberSchema = AccountSlugSchema.extend({
   ),
 });
 
+const UpdateMemberSchema = CreateMemberSchema.extend({
+  id: z.string().uuid(),
+});
+
 const CreateSongSchema = AccountSlugSchema.extend({
   title: z.string().trim().min(1),
   original_artist: optionalString.default('The Beach Boys'),
@@ -110,6 +114,42 @@ export async function createBandMemberAction(formData: FormData) {
     instrument_capabilities: instrumentCapabilities as InstrumentSlot[],
     vocal_capabilities: vocalCapabilities as VocalSlot[],
   });
+
+  if (error) {
+    throw error;
+  }
+
+  revalidateBand(accountSlug);
+}
+
+export async function updateBandMemberAction(formData: FormData) {
+  const data = UpdateMemberSchema.parse(Object.fromEntries(formData));
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const instrumentCapabilities = data.default_instrument
+    ? [data.default_instrument]
+    : [];
+  const vocalCapabilities = data.default_vocal_slot
+    ? [data.default_vocal_slot]
+    : [];
+
+  const { error } = await client
+    .from('members')
+    .update({
+      status: data.status,
+      display_name: data.display_name,
+      email: data.email,
+      role_label: data.role_label,
+      default_instrument: data.default_instrument as InstrumentSlot | null,
+      default_vocal_slot: data.default_vocal_slot as VocalSlot | null,
+      instrument_capabilities: instrumentCapabilities as InstrumentSlot[],
+      vocal_capabilities: vocalCapabilities as VocalSlot[],
+    })
+    .eq('account_id', accountId)
+    .eq('id', data.id);
 
   if (error) {
     throw error;

@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Music,
   Settings,
+  ShieldCheck,
   Users,
 } from 'lucide-react';
 
@@ -14,72 +15,124 @@ import pathsConfig from '~/config/paths.config';
 
 const iconClasses = 'w-4';
 
-const getRoutes = (account: string) => [
-  {
-    label: 'common.routes.application',
-    children: [
-      {
-        label: 'common.routes.dashboard',
-        path: pathsConfig.app.accountHome.replace('[account]', account),
-        Icon: <LayoutDashboard className={iconClasses} />,
-        highlightMatch: `${pathsConfig.app.home}$`,
-      },
-    ],
-  },
-  {
-    label: 'Band',
-    children: [
-      {
-        label: 'Band Home',
-        path: createPath('/home/[account]/band', account),
-        Icon: <Music className={iconClasses} />,
-        highlightMatch: `${createPath('/home/[account]/band', account)}$`,
-      },
-      {
-        label: 'Band Members',
-        path: createPath('/home/[account]/band/members', account),
-        Icon: <Users className={iconClasses} />,
-      },
-      {
-        label: 'Songs',
-        path: createPath('/home/[account]/band/songs', account),
-        Icon: <Music className={iconClasses} />,
-      },
-      {
-        label: 'Parts',
-        path: createPath('/home/[account]/band/parts', account),
-        Icon: <FileAudio className={iconClasses} />,
-      },
-    ],
-  },
-  {
-    label: 'common.routes.settings',
-    collapsible: false,
-    children: [
-      {
-        label: 'common.routes.settings',
-        path: createPath(pathsConfig.app.accountSettings, account),
-        Icon: <Settings className={iconClasses} />,
-      },
-      {
-        label: 'common.routes.members',
-        path: createPath(pathsConfig.app.accountMembers, account),
-        Icon: <Users className={iconClasses} />,
-      },
-      featureFlagsConfig.enableTeamAccountBilling
-        ? {
-            label: 'common.routes.billing',
-            path: createPath(pathsConfig.app.accountBilling, account),
-            Icon: <CreditCard className={iconClasses} />,
-          }
-        : undefined,
-    ].filter(Boolean),
-  },
-];
+type Permission =
+  | 'access.manage'
+  | 'band.members.read'
+  | 'band.members.manage'
+  | 'members.manage'
+  | 'parts.read'
+  | 'parts.manage'
+  | 'roles.manage'
+  | 'songs.read'
+  | 'songs.manage';
 
-export function getTeamAccountSidebarConfig(account: string) {
+const getRoutes = (account: string, permissions?: string[]) => {
+  const can = (permission: Permission) => {
+    return !permissions || permissions.includes(permission);
+  };
+
+  const canAny = (permissionList: Permission[]) => {
+    return permissionList.some((permission) => can(permission));
+  };
+
+  const routes = [
+    {
+      label: 'common.routes.application',
+      children: [
+        {
+          label: 'common.routes.dashboard',
+          path: pathsConfig.app.accountHome.replace('[account]', account),
+          Icon: <LayoutDashboard className={iconClasses} />,
+          highlightMatch: `${pathsConfig.app.home}$`,
+        },
+      ],
+    },
+    {
+      label: 'Band',
+      children: [
+        canAny([
+          'band.members.read',
+          'band.members.manage',
+          'songs.read',
+          'songs.manage',
+          'parts.read',
+          'parts.manage',
+        ])
+          ? {
+              label: 'Band Home',
+              path: createPath('/home/[account]/band', account),
+              Icon: <Music className={iconClasses} />,
+              highlightMatch: `${createPath('/home/[account]/band', account)}$`,
+            }
+          : undefined,
+        canAny(['band.members.read', 'band.members.manage'])
+          ? {
+              label: 'Band Members',
+              path: createPath('/home/[account]/band/members', account),
+              Icon: <Users className={iconClasses} />,
+            }
+          : undefined,
+        canAny(['songs.read', 'songs.manage'])
+          ? {
+              label: 'Songs',
+              path: createPath('/home/[account]/band/songs', account),
+              Icon: <Music className={iconClasses} />,
+            }
+          : undefined,
+        canAny(['parts.read', 'parts.manage'])
+          ? {
+              label: 'Parts',
+              path: createPath('/home/[account]/band/parts', account),
+              Icon: <FileAudio className={iconClasses} />,
+            }
+          : undefined,
+      ].filter(Boolean),
+    },
+    {
+      label: 'common.routes.settings',
+      collapsible: false,
+      children: [
+        {
+          label: 'common.routes.settings',
+          path: createPath(pathsConfig.app.accountSettings, account),
+          Icon: <Settings className={iconClasses} />,
+        },
+        can('members.manage')
+          ? {
+              label: 'common.routes.members',
+              path: createPath(pathsConfig.app.accountMembers, account),
+              Icon: <Users className={iconClasses} />,
+            }
+          : undefined,
+        canAny(['access.manage', 'roles.manage'])
+          ? {
+              label: 'Access',
+              path: createPath('/home/[account]/settings/access', account),
+              Icon: <ShieldCheck className={iconClasses} />,
+            }
+          : undefined,
+        featureFlagsConfig.enableTeamAccountBilling
+          ? {
+              label: 'common.routes.billing',
+              path: createPath(pathsConfig.app.accountBilling, account),
+              Icon: <CreditCard className={iconClasses} />,
+            }
+          : undefined,
+      ].filter(Boolean),
+    },
+  ];
+
+  return routes.filter(
+    (route) => !('children' in route) || route.children.length > 0,
+  );
+};
+
+export function getTeamAccountSidebarConfig(
+  account: string,
+  permissions?: string[],
+) {
   return NavigationConfigSchema.parse({
-    routes: getRoutes(account),
+    routes: getRoutes(account, permissions),
     style: process.env.NEXT_PUBLIC_TEAM_NAVIGATION_STYLE,
     sidebarCollapsed: process.env.NEXT_PUBLIC_TEAM_SIDEBAR_COLLAPSED,
     sidebarCollapsedStyle: process.env.NEXT_PUBLIC_SIDEBAR_COLLAPSIBLE_STYLE,

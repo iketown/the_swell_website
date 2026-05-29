@@ -16,7 +16,20 @@ create type public.app_permissions as enum(
   'billing.manage',
   'settings.manage',
   'members.manage',
-  'invites.manage'
+  'invites.manage',
+  'access.manage',
+  'band.members.read',
+  'band.members.manage',
+  'songs.read',
+  'songs.manage',
+  'parts.read',
+  'parts.manage',
+  'calendar.read',
+  'calendar.manage',
+  'logistics.read',
+  'logistics.manage',
+  'press.read',
+  'press.manage'
 );
 
 /*

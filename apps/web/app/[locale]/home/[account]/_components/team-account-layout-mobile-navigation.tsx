@@ -39,6 +39,7 @@ export const TeamAccountLayoutMobileNavigation = (
     account: string;
     userId: string;
     accounts: Accounts;
+    permissions: string[];
   }>,
 ) => {
   const router = useRouter();
@@ -80,7 +81,10 @@ export const TeamAccountLayoutMobileNavigation = (
 
         <DropdownMenuGroup>
           <MobileNavRouteLinks
-            routes={getTeamAccountSidebarConfig(props.account).routes}
+            routes={
+              getTeamAccountSidebarConfig(props.account, props.permissions)
+                .routes
+            }
           />
         </DropdownMenuGroup>
 

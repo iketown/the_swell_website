@@ -183,7 +183,7 @@ create table if not exists
     primary key (id),
     unique (account_id, id),
     foreign key (account_id, song_id) references public.songs (account_id, id) on delete cascade,
-    foreign key (account_id, default_member_id) references public.members (account_id, id) on delete set null,
+    foreign key (account_id, default_member_id) references public.members (account_id, id) on delete set null (default_member_id),
     check (
       (
         type = 'vocal'

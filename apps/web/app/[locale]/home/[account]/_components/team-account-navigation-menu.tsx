@@ -19,7 +19,10 @@ export function TeamAccountNavigationMenu(props: {
 }) {
   const { account, user, accounts } = props.workspace;
 
-  const routes = getTeamAccountSidebarConfig(account.slug).routes.reduce<
+  const routes = getTeamAccountSidebarConfig(
+    account.slug,
+    account.permissions,
+  ).routes.reduce<
     Array<{
       path: string;
       label: string;

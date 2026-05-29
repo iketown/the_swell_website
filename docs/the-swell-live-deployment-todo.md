@@ -140,13 +140,17 @@ MakerKit update flow:
   pnpm --filter web supabase db push
   ```
 
-- [ ] Confirm the production Supabase Table Editor has the MakerKit tables plus The Swell tables:
+- [ ] Confirm the production Supabase Table Editor has the MakerKit tables plus the current phase-one Swell tables:
   - `accounts`
   - `accounts_memberships`
   - `members`
+  - `member_private_financial`
   - `songs`
   - `parts`
   - `part_files`
+
+Later phases will add these tables when we build schedule, locations, and asset library features:
+
   - `events`
   - `locations`
   - `assets`
@@ -256,6 +260,11 @@ NEXT_PUBLIC_SITE_URL=https://theswell.live pnpm --filter web run build
 - [ ] Deploy.
 - [ ] If the first deploy fails because of missing env vars, read the build log, add the missing variable, and redeploy. MakerKit intentionally fails fast on bad production config.
 
+Troubleshooting:
+
+- If Vercel reports that `.next` was not found under `apps/dev-tool/.next`, the Vercel project is pointed at the wrong app. Set **Root Directory** to `apps/web`, then redeploy. Do not use `apps/dev-tool` for the production site.
+- If creating a team says "Sorry, we couldn't create your team", check that Vercel has the exact server-side variable `SUPABASE_SECRET_KEY` set to the Supabase service role/secret key. MakerKit's team creation uses the server admin client and will fail without it.
+
 ## Phase 7: Connect `theswell.live`
 
 - [ ] In Vercel -> Project Settings -> Domains, add:
@@ -308,7 +317,12 @@ MakerKit uses a DB webhook for account/subscription cleanup. Even if billing is 
   https://theswell.live/api/healthcheck
   ```
 
-- [ ] Create your production owner user in Supabase Auth.
+- [ ] Create your production owner user by signing up/signing in.
+- [ ] Create the production team account.
+  - In normal MakerKit mode, use the workspace/account dropdown from `/home`.
+  - Do not use `/home/create-team` unless `NEXT_PUBLIC_ENABLE_TEAM_ACCOUNTS_ONLY=true`; that route redirects to `/home` in personal-plus-team mode.
+  - Team name: `The Swell`
+  - Team slug: `the-swell`
 - [ ] Add/confirm the owner membership in the production team account.
 - [ ] Sign in at:
   ```text

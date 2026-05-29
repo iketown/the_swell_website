@@ -14,11 +14,12 @@ export function TeamAccountLayoutSidebar(props: {
   account: string;
   accountId: string;
   accounts: AccountModel[];
+  permissions: string[];
   user: JWTUserData;
 }) {
-  const { account, accounts, user } = props;
+  const { account, accounts, permissions, user } = props;
 
-  const config = getTeamAccountSidebarConfig(account);
+  const config = getTeamAccountSidebarConfig(account, permissions);
   const collapsible = config.sidebarCollapsedStyle;
 
   return (

@@ -1381,6 +1381,19 @@ export type Database = {
         | "settings.manage"
         | "members.manage"
         | "invites.manage"
+        | "access.manage"
+        | "band.members.read"
+        | "band.members.manage"
+        | "songs.read"
+        | "songs.manage"
+        | "parts.read"
+        | "parts.manage"
+        | "calendar.read"
+        | "calendar.manage"
+        | "logistics.read"
+        | "logistics.manage"
+        | "press.read"
+        | "press.manage"
       billing_provider: "stripe" | "lemon-squeezy" | "paddle"
       instrument_slot: "rhy_gtr" | "lead_gtr" | "keys" | "bass" | "drums"
       member_status: "candidate" | "active" | "inactive" | "alumni"
@@ -2097,6 +2110,19 @@ export const Constants = {
         "settings.manage",
         "members.manage",
         "invites.manage",
+        "access.manage",
+        "band.members.read",
+        "band.members.manage",
+        "songs.read",
+        "songs.manage",
+        "parts.read",
+        "parts.manage",
+        "calendar.read",
+        "calendar.manage",
+        "logistics.read",
+        "logistics.manage",
+        "press.read",
+        "press.manage",
       ],
       billing_provider: ["stripe", "lemon-squeezy", "paddle"],
       instrument_slot: ["rhy_gtr", "lead_gtr", "keys", "bass", "drums"],

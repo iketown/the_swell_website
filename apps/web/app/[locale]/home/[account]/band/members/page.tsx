@@ -2,7 +2,7 @@ import { AppBreadcrumbs } from '@kit/ui/app-breadcrumbs';
 import { PageBody } from '@kit/ui/page';
 
 import { TeamAccountLayoutPageHeader } from '../../_components/team-account-layout-page-header';
-import { MembersAdmin } from '../_components/band-admin-ui';
+import { MembersAdmin } from '../_components/members-admin';
 import { loadBandAdminData } from '../_lib/server/band-admin.loader';
 
 interface BandMembersPageProps {
@@ -20,6 +20,16 @@ export default async function BandMembersPage({
 }: BandMembersPageProps) {
   const account = (await params).account;
   const data = await loadBandAdminData(account);
+  const assignedPartCountsByMemberId = data.parts.reduce<
+    Record<string, number>
+  >((counts, part) => {
+    if (part.default_member_id) {
+      counts[part.default_member_id] =
+        (counts[part.default_member_id] ?? 0) + 1;
+    }
+
+    return counts;
+  }, {});
 
   return (
     <PageBody>
@@ -29,7 +39,11 @@ export default async function BandMembersPage({
         description={<AppBreadcrumbs />}
       />
 
-      <MembersAdmin data={data} />
+      <MembersAdmin
+        accountSlug={data.workspace.account.slug}
+        assignedPartCountsByMemberId={assignedPartCountsByMemberId}
+        members={data.members}
+      />
     </PageBody>
   );
 }

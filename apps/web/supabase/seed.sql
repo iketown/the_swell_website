@@ -567,7 +567,11 @@ SELECT pg_catalog.setval('"public"."invitations_id_seq"', 19, true);
 -- Name: role_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('"public"."role_permissions_id_seq"', 7, true);
+SELECT pg_catalog.setval(
+    '"public"."role_permissions_id_seq"',
+    coalesce((select max("id") from "public"."role_permissions"), 1),
+    true
+);
 
 
 --

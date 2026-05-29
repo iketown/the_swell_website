@@ -63,6 +63,7 @@ async function SidebarLayout({
               account={account}
               accountId={data.account.id}
               accounts={accounts}
+              permissions={data.account.permissions}
               user={data.user}
             />
           </PageNavigation>
@@ -75,6 +76,7 @@ async function SidebarLayout({
                 userId={data.user.id}
                 accounts={accounts}
                 account={account}
+                permissions={data.account.permissions}
               />
             </div>
           </PageMobileNavigation>
@@ -117,6 +119,7 @@ function HeaderLayout({
               userId={data.user.id}
               accounts={accounts}
               account={account}
+              permissions={data.account.permissions}
             />
           </div>
         </PageMobileNavigation>

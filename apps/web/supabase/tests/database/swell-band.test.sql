@@ -188,6 +188,57 @@ select lives_ok(
   'Owner can update member-managed performance fields'
 );
 
+set local role postgres;
+
+insert into public.members (
+  id,
+  account_id,
+  account_role,
+  status,
+  display_name,
+  email,
+  member_type,
+  instrument_capabilities,
+  vocal_capabilities
+)
+values (
+  '99999999-9999-4999-8999-999999999999',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'member',
+  'candidate',
+  'Assigned Candidate',
+  'assigned-candidate@test.local',
+  'performer',
+  '{}'::public.instrument_slot[],
+  '{}'::public.vocal_slot[]
+);
+
+update public.parts
+set default_member_id = '99999999-9999-4999-8999-999999999999'
+where id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+
+select makerkit.authenticate_as('swell_owner');
+
+select lives_ok(
+  $$ delete from public.members
+     where id = '99999999-9999-4999-8999-999999999999' $$,
+  'Owner can delete a member assigned to parts'
+);
+
+select row_eq(
+  $$ select account_id, default_member_id
+     from public.parts
+     where id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' $$,
+  row('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid, null::uuid),
+  'Deleting a member unassigns parts without clearing the account'
+);
+
+set local role postgres;
+
+update public.parts
+set default_member_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+where id = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+
 select makerkit.authenticate_as('swell_member');
 
 select isnt_empty(

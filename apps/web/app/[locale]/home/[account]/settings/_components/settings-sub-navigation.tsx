@@ -18,6 +18,8 @@ export function SettingsSubNavigation(props: { account: string }) {
     props.account,
   );
 
+  const accessPath = `/home/${props.account}/settings/access`;
+
   return (
     <BorderedNavigationMenu>
       <BorderedNavigationMenuItem
@@ -30,6 +32,8 @@ export function SettingsSubNavigation(props: { account: string }) {
         path={profilePath}
         label={'common.routes.profile'}
       />
+
+      <BorderedNavigationMenuItem path={accessPath} label={'Access'} />
     </BorderedNavigationMenu>
   );
 }
