@@ -37,7 +37,7 @@ values
   (
     tests.get_supabase_uid('swell_member'),
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    'member'
+    'performer'
   );
 
 insert into public.members (
@@ -73,7 +73,7 @@ values
     'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     tests.get_supabase_uid('swell_member'),
-    'member',
+    'performer',
     'active',
     'Member',
     'swell-member@test.local',
@@ -118,6 +118,30 @@ values (
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   'Test Song',
   'learning'
+);
+
+insert into public.tags (
+  id,
+  account_id,
+  display,
+  slug
+)
+values (
+  'abababab-abab-4aba-8aba-abababababab',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'Pet Sounds',
+  'pet-sounds'
+);
+
+insert into public.song_tags (
+  account_id,
+  song_id,
+  tag_id
+)
+values (
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  'abababab-abab-4aba-8aba-abababababab'
 );
 
 insert into public.parts (
@@ -165,6 +189,8 @@ values (
 select tests.rls_enabled('public', 'members');
 select tests.rls_enabled('public', 'member_private_financial');
 select tests.rls_enabled('public', 'songs');
+select tests.rls_enabled('public', 'tags');
+select tests.rls_enabled('public', 'song_tags');
 select tests.rls_enabled('public', 'parts');
 select tests.rls_enabled('public', 'part_files');
 
@@ -179,6 +205,23 @@ select lives_ok(
   $$ insert into public.songs (account_id, title, status)
      values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Owner Inserted Song', 'candidate') $$,
   'Owner can insert songs'
+);
+
+select lives_ok(
+  $$ insert into public.tags (account_id, display, slug)
+     values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Surf Songs', 'surf-songs') $$,
+  'Owner can insert tags'
+);
+
+select lives_ok(
+  $$ insert into public.song_tags (account_id, song_id, tag_id)
+     values (
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+       'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+       'abababab-abab-4aba-8aba-abababababab'
+     )
+     on conflict do nothing $$,
+  'Owner can assign tags to songs'
 );
 
 select lives_ok(
@@ -247,6 +290,16 @@ select isnt_empty(
 );
 
 select isnt_empty(
+  $$ select * from public.tags where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Member can read song tags in their band account'
+);
+
+select isnt_empty(
+  $$ select * from public.song_tags where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Member can read song tag assignments'
+);
+
+select isnt_empty(
   $$ select * from public.parts where default_member_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' $$,
   'Member can read assigned parts'
 );
@@ -261,6 +314,27 @@ select throws_ok(
      values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Member Inserted Song', 'candidate') $$,
   'new row violates row-level security policy for table "songs"',
   'Member cannot insert songs'
+);
+
+select throws_ok(
+  $$ insert into public.tags (account_id, display, slug)
+     values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Member Tag', 'member-tag') $$,
+  'new row violates row-level security policy for table "tags"',
+  'Member cannot insert tags'
+);
+
+select lives_ok(
+  $$ delete from public.song_tags
+     where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Member delete attempt against tag assignments does not error'
+);
+
+select isnt_empty(
+  $$ select * from public.song_tags
+     where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+       and song_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+       and tag_id = 'abababab-abab-4aba-8aba-abababababab' $$,
+  'Member cannot remove tag assignments'
 );
 
 select lives_ok(
@@ -295,6 +369,11 @@ select makerkit.authenticate_as('swell_outsider');
 select is_empty(
   $$ select * from public.songs where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
   'Outsider cannot read songs'
+);
+
+select is_empty(
+  $$ select * from public.tags where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Outsider cannot read tags'
 );
 
 select is_empty(

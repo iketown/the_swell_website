@@ -425,17 +425,16 @@ INSERT INTO "public"."songs" (
     "year_recorded",
     "song_key",
     "bpm",
-    "era",
     "status",
     "duration_sec",
     "notes"
 )
 VALUES
-    ('d5d8c238-53fb-4a4b-91d7-28eccecd0250', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Don''t Worry Baby', 'The Beach Boys', 1964, 'E', 118, 'Surf / early hits', 'learning', 169, 'Seed arrangement for top harmony and bass practice.'),
-    ('eb0fca32-0d27-4b88-8650-09d038038258', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'California Girls', 'The Beach Boys', 1965, 'A', 116, 'Summer Days', 'active', 158, 'Lead guitar/rhythm guitar split for arrangement testing.'),
-    ('732590ed-a33f-46ed-8f5f-c1d20dea1af2', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'God Only Knows', 'The Beach Boys', 1966, 'E', 117, 'Pet Sounds', 'learning', 173, 'Includes keys; good harmony-stack test song.'),
-    ('55b1a590-498e-4e4b-beab-817e60a4251b', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Help Me, Rhonda', 'The Beach Boys', 1965, 'A', 142, 'Today / Summer Days', 'active', 167, 'No keys part in this seed arrangement.'),
-    ('c5fa050a-d110-4ff3-8591-ac72b9abaa0e', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Good Vibrations', 'The Beach Boys', 1966, 'Eb', 75, 'Smile era', 'candidate', 217, 'Candidate repertoire with keys and dense vocals.')
+    ('d5d8c238-53fb-4a4b-91d7-28eccecd0250', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Don''t Worry Baby', 'The Beach Boys', 1964, 'E', 118, 'learning', 169, 'Seed arrangement for top harmony and bass practice.'),
+    ('eb0fca32-0d27-4b88-8650-09d038038258', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'California Girls', 'The Beach Boys', 1965, 'A', 116, 'active', 158, 'Lead guitar/rhythm guitar split for arrangement testing.'),
+    ('732590ed-a33f-46ed-8f5f-c1d20dea1af2', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'God Only Knows', 'The Beach Boys', 1966, 'E', 117, 'learning', 173, 'Includes keys; good harmony-stack test song.'),
+    ('55b1a590-498e-4e4b-beab-817e60a4251b', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Help Me, Rhonda', 'The Beach Boys', 1965, 'A', 142, 'active', 167, 'No keys part in this seed arrangement.'),
+    ('c5fa050a-d110-4ff3-8591-ac72b9abaa0e', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Good Vibrations', 'The Beach Boys', 1966, 'Eb', 75, 'candidate', 217, 'Candidate repertoire with keys and dense vocals.')
 ON CONFLICT ("id") DO UPDATE
 SET
     "title" = excluded."title",
@@ -443,10 +442,42 @@ SET
     "year_recorded" = excluded."year_recorded",
     "song_key" = excluded."song_key",
     "bpm" = excluded."bpm",
-    "era" = excluded."era",
     "status" = excluded."status",
     "duration_sec" = excluded."duration_sec",
     "notes" = excluded."notes";
+
+INSERT INTO "public"."tags" (
+    "id",
+    "account_id",
+    "display",
+    "slug"
+)
+VALUES
+    ('b88b23a5-5ca3-4f1f-bb77-3ef0601a71c2', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Surf Songs', 'surf-songs'),
+    ('e151d8fe-151a-4bbf-9d3c-8dd8d6d09931', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Car Songs', 'car-songs'),
+    ('786f1952-99c8-411e-8de2-bf78bb1545dc', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Early Songs', 'early-songs'),
+    ('225d4d67-2b5b-480f-8c42-e43c1de22c51', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Pet Sounds', 'pet-sounds'),
+    ('377d29d5-0db5-4a17-8d3d-1f910d8af863', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Summer Days', 'summer-days'),
+    ('da4ac50e-7c59-4c78-9d24-6daf845c94fb', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Smile Era', 'smile-era')
+ON CONFLICT ("account_id", "slug") DO UPDATE
+SET
+    "display" = excluded."display";
+
+INSERT INTO "public"."song_tags" (
+    "account_id",
+    "song_id",
+    "tag_id"
+)
+VALUES
+    ('914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'd5d8c238-53fb-4a4b-91d7-28eccecd0250', 'b88b23a5-5ca3-4f1f-bb77-3ef0601a71c2'),
+    ('914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'd5d8c238-53fb-4a4b-91d7-28eccecd0250', '786f1952-99c8-411e-8de2-bf78bb1545dc'),
+    ('914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'eb0fca32-0d27-4b88-8650-09d038038258', 'b88b23a5-5ca3-4f1f-bb77-3ef0601a71c2'),
+    ('914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'eb0fca32-0d27-4b88-8650-09d038038258', '377d29d5-0db5-4a17-8d3d-1f910d8af863'),
+    ('914c4883-7fe2-4d99-91a7-8b5c6a07f54d', '732590ed-a33f-46ed-8f5f-c1d20dea1af2', '225d4d67-2b5b-480f-8c42-e43c1de22c51'),
+    ('914c4883-7fe2-4d99-91a7-8b5c6a07f54d', '55b1a590-498e-4e4b-beab-817e60a4251b', '786f1952-99c8-411e-8de2-bf78bb1545dc'),
+    ('914c4883-7fe2-4d99-91a7-8b5c6a07f54d', '55b1a590-498e-4e4b-beab-817e60a4251b', '377d29d5-0db5-4a17-8d3d-1f910d8af863'),
+    ('914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'c5fa050a-d110-4ff3-8591-ac72b9abaa0e', 'da4ac50e-7c59-4c78-9d24-6daf845c94fb')
+ON CONFLICT ("account_id", "song_id", "tag_id") DO NOTHING;
 
 INSERT INTO "public"."parts" (
     "id",

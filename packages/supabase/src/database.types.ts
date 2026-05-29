@@ -883,6 +883,69 @@ export type Database = {
         }
         Relationships: []
       }
+      song_tags: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          song_id: string
+          tag_id: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          song_id: string
+          tag_id: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          song_id?: string
+          tag_id?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "song_tags_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_tags_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_tags_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_tags_account_id_song_id_fkey"
+            columns: ["account_id", "song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["account_id", "id"]
+          },
+          {
+            foreignKeyName: "song_tags_account_id_tag_id_fkey"
+            columns: ["account_id", "tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["account_id", "id"]
+          },
+        ]
+      }
       songs: {
         Row: {
           account_id: string
@@ -890,7 +953,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           duration_sec: number | null
-          era: string | null
           id: string
           notes: string | null
           original_artist: string | null
@@ -907,7 +969,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           duration_sec?: number | null
-          era?: string | null
           id?: string
           notes?: string | null
           original_artist?: string | null
@@ -924,7 +985,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           duration_sec?: number | null
-          era?: string | null
           id?: string
           notes?: string | null
           original_artist?: string | null
@@ -1085,6 +1145,61 @@ export type Database = {
             columns: ["billing_customer_id"]
             isOneToOne: false
             referencedRelation: "billing_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tags: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          display: string
+          id: string
+          slug: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          display: string
+          id?: string
+          slug: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          display?: string
+          id?: string
+          slug?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tags_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tags_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tags_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -1394,6 +1509,8 @@ export type Database = {
         | "logistics.manage"
         | "press.read"
         | "press.manage"
+        | "tags.read"
+        | "tags.manage"
       billing_provider: "stripe" | "lemon-squeezy" | "paddle"
       instrument_slot: "rhy_gtr" | "lead_gtr" | "keys" | "bass" | "drums"
       member_status: "candidate" | "active" | "inactive" | "alumni"
@@ -2123,6 +2240,8 @@ export const Constants = {
         "logistics.manage",
         "press.read",
         "press.manage",
+        "tags.read",
+        "tags.manage",
       ],
       billing_provider: ["stripe", "lemon-squeezy", "paddle"],
       instrument_slot: ["rhy_gtr", "lead_gtr", "keys", "bass", "drums"],

@@ -71,6 +71,16 @@ export const swellPermissionGroups = [
         label: 'Manage songs',
         description: 'Can create and edit songs.',
       },
+      {
+        key: 'tags.read',
+        label: 'View tags',
+        description: 'Can view and filter repertoire tags.',
+      },
+      {
+        key: 'tags.manage',
+        label: 'Manage tags',
+        description: 'Can create, delete, and assign repertoire tags.',
+      },
     ],
   },
   {

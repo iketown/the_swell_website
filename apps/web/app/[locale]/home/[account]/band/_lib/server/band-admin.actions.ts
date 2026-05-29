@@ -59,8 +59,27 @@ const CreateSongSchema = AccountSlugSchema.extend({
   year_recorded: optionalInt,
   song_key: optionalString,
   bpm: optionalInt,
-  era: optionalString,
   status: z.enum(['active', 'learning', 'candidate', 'retired']),
+});
+
+const TagSlugSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+
+const CreateTagSchema = AccountSlugSchema.extend({
+  display: z.string().trim().min(1).max(120),
+  slug: z.preprocess(emptyToNull, TagSlugSchema.max(120).nullable()),
+});
+
+const UpdateTagSchema = CreateTagSchema.extend({
+  id: z.string().uuid(),
+});
+
+const UpdateSongTagsSchema = AccountSlugSchema.extend({
+  songId: z.string().uuid(),
+  tagIds: z.array(z.string().uuid()),
 });
 
 const CreatePartSchema = AccountSlugSchema.extend({
@@ -172,7 +191,6 @@ export async function createSongAction(formData: FormData) {
     year_recorded: data.year_recorded,
     song_key: data.song_key,
     bpm: data.bpm,
-    era: data.era,
     status: data.status,
   });
 
@@ -304,11 +322,127 @@ export async function deletePartAction(formData: FormData) {
   revalidateBand(accountSlug);
 }
 
+export async function createTagAction(formData: FormData) {
+  const data = CreateTagSchema.parse(Object.fromEntries(formData));
+  const { accountId, accountSlug } = await assertCanManageTags(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+  const slug = data.slug ?? slugifyTag(data.display);
+
+  const { error } = await client.from('tags').insert({
+    account_id: accountId,
+    display: data.display,
+    slug,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  revalidateBand(accountSlug);
+}
+
+export async function deleteTagAction(formData: FormData) {
+  const data = DeleteRecordSchema.parse(Object.fromEntries(formData));
+  const { accountId, accountSlug } = await assertCanManageTags(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { error } = await client
+    .from('tags')
+    .delete()
+    .eq('account_id', accountId)
+    .eq('id', data.id);
+
+  if (error) {
+    throw error;
+  }
+
+  revalidateBand(accountSlug);
+}
+
+export async function updateTagAction(formData: FormData) {
+  const data = UpdateTagSchema.parse(Object.fromEntries(formData));
+  const { accountId, accountSlug } = await assertCanManageTags(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+  const slug = data.slug ?? slugifyTag(data.display);
+
+  const { error } = await client
+    .from('tags')
+    .update({
+      display: data.display,
+      slug,
+    })
+    .eq('account_id', accountId)
+    .eq('id', data.id);
+
+  if (error) {
+    throw error;
+  }
+
+  revalidateBand(accountSlug);
+}
+
+export async function updateSongTagsAction(formData: FormData) {
+  const data = UpdateSongTagsSchema.parse({
+    accountSlug: formData.get('accountSlug'),
+    songId: formData.get('songId'),
+    tagIds: formData.getAll('tagId'),
+  });
+  const { accountId, accountSlug } = await assertCanManageTags(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { error: deleteError } = await client
+    .from('song_tags')
+    .delete()
+    .eq('account_id', accountId)
+    .eq('song_id', data.songId);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  if (data.tagIds.length > 0) {
+    const { error: insertError } = await client.from('song_tags').insert(
+      data.tagIds.map((tagId) => ({
+        account_id: accountId,
+        song_id: data.songId,
+        tag_id: tagId,
+      })),
+    );
+
+    if (insertError) {
+      throw insertError;
+    }
+  }
+
+  revalidateBand(accountSlug);
+}
+
 async function assertCanManageBand(accountSlug: string) {
   const workspace = await loadTeamWorkspace(accountSlug);
 
   if (!workspace.account.permissions.includes('members.manage')) {
     throw new Error('You do not have permission to manage band data.');
+  }
+
+  return {
+    accountId: workspace.account.id,
+    accountSlug: workspace.account.slug,
+  };
+}
+
+async function assertCanManageTags(accountSlug: string) {
+  const workspace = await loadTeamWorkspace(accountSlug);
+
+  if (!workspace.account.permissions.includes('tags.manage')) {
+    throw new Error('You do not have permission to manage song tags.');
   }
 
   return {
@@ -334,4 +468,14 @@ function revalidateBand(accountSlug: string) {
   revalidatePath(`/home/${accountSlug}/band/members`);
   revalidatePath(`/home/${accountSlug}/band/songs`);
   revalidatePath(`/home/${accountSlug}/band/parts`);
+}
+
+function slugifyTag(display: string) {
+  return TagSlugSchema.parse(
+    display
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, ''),
+  );
 }

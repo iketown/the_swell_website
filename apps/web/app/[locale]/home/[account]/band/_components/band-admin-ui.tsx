@@ -5,6 +5,7 @@ import {
   FileText,
   Music,
   PlusCircle,
+  Tags,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -33,9 +34,13 @@ import {
   createBandMemberAction,
   createPartAction,
   createSongAction,
+  createTagAction,
   deleteBandMemberAction,
   deletePartAction,
   deleteSongAction,
+  deleteTagAction,
+  updateTagAction,
+  updateSongTagsAction,
 } from '../_lib/server/band-admin.actions';
 
 type BandData = BandAdminData;
@@ -166,8 +171,25 @@ export function MembersAdmin({ data }: { data: BandData }) {
   );
 }
 
-export function SongsAdmin({ data }: { data: BandData }) {
+export function SongsAdmin({
+  data,
+  selectedTagSlug,
+}: {
+  data: BandData;
+  selectedTagSlug?: string | null;
+}) {
   const accountSlug = data.workspace.account.slug;
+  const basePath = `/home/${accountSlug}/band/songs`;
+  const selectedTag = selectedTagSlug
+    ? data.tags.find((tag) => tag.slug === selectedTagSlug)
+    : null;
+  const songs = selectedTag
+    ? data.songs.filter((song) =>
+        (data.tagsBySongId.get(song.id) ?? []).some(
+          (tag) => tag.id === selectedTag.id,
+        ),
+      )
+    : data.songs;
 
   return (
     <div className="grid w-full max-w-6xl gap-6 pb-32 xl:grid-cols-[1fr_360px]">
@@ -180,7 +202,30 @@ export function SongsAdmin({ data }: { data: BandData }) {
           </CardDescription>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              nativeButton={false}
+              render={<Link href={basePath} />}
+              size="sm"
+              variant={selectedTag ? 'outline' : 'default'}
+            >
+              All
+            </Button>
+
+            {data.tags.map((tag) => (
+              <Button
+                key={tag.id}
+                nativeButton={false}
+                render={<Link href={`${basePath}?tag=${tag.slug}`} />}
+                size="sm"
+                variant={selectedTag?.id === tag.id ? 'default' : 'outline'}
+              >
+                {tag.display}
+              </Button>
+            ))}
+          </div>
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -188,43 +233,78 @@ export function SongsAdmin({ data }: { data: BandData }) {
                 <TableHead>Status</TableHead>
                 <TableHead>Key</TableHead>
                 <TableHead>BPM</TableHead>
-                <TableHead>Era</TableHead>
+                <TableHead>Tags</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
 
             <TableBody>
-              {data.songs.map((song) => (
-                <TableRow key={song.id}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{song.title}</span>
-                      <span className="text-muted-foreground text-xs">
-                        {song.original_artist ?? 'The Beach Boys'}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge value={song.status} />
-                  </TableCell>
-                  <TableCell>{song.song_key ?? 'Unset'}</TableCell>
-                  <TableCell>{song.bpm ?? 'Unset'}</TableCell>
-                  <TableCell>{song.era ?? 'Unset'}</TableCell>
-                  <TableCell className="text-right">
-                    <DeleteButton
-                      accountSlug={accountSlug}
-                      id={song.id}
-                      action={deleteSongAction}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
+              {songs.map((song) => {
+                const songTags = data.tagsBySongId.get(song.id) ?? [];
+
+                return (
+                  <TableRow key={song.id}>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{song.title}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {song.original_artist ?? 'The Beach Boys'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge value={song.status} />
+                    </TableCell>
+                    <TableCell>{song.song_key ?? 'Unset'}</TableCell>
+                    <TableCell>{song.bpm ?? 'Unset'}</TableCell>
+                    <TableCell className="min-w-56">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          {songTags.length > 0 ? (
+                            songTags.map((tag) => (
+                              <Badge key={tag.id} variant="secondary">
+                                {tag.display}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground text-sm">
+                              Untagged
+                            </span>
+                          )}
+                        </div>
+
+                        {data.canManageTags ? (
+                          <TagAssignmentForm
+                            accountSlug={accountSlug}
+                            songId={song.id}
+                            tags={data.tags}
+                            selectedTagIds={new Set(
+                              songTags.map((tag) => tag.id),
+                            )}
+                          />
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DeleteButton
+                        accountSlug={accountSlug}
+                        id={song.id}
+                        action={deleteSongAction}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      <CreateSongForm accountSlug={accountSlug} />
+      <div className="flex flex-col gap-4">
+        <CreateSongForm accountSlug={accountSlug} />
+
+        {data.canManageTags ? <ManageTagsCard data={data} /> : null}
+      </div>
     </div>
   );
 }
@@ -399,8 +479,6 @@ function CreateSongForm({ accountSlug }: { accountSlug: string }) {
             <Input name="bpm" type="number" placeholder="BPM" />
           </div>
 
-          <Input name="era" placeholder="Era or album" />
-
           <NativeSelect name="status" defaultValue="learning">
             {songStatuses.map((status) => (
               <option key={status} value={status}>
@@ -416,6 +494,130 @@ function CreateSongForm({ accountSlug }: { accountSlug: string }) {
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+function ManageTagsCard({ data }: { data: BandData }) {
+  const accountSlug = data.workspace.account.slug;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="text-primary flex items-center gap-2">
+          <Tags className="size-4" />
+          <CardTitle>Tags</CardTitle>
+        </div>
+        <CardDescription>
+          Add eras, themes, or show-planning groups for the song list.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        <form action={createTagAction} className="flex flex-col gap-3">
+          <input type="hidden" name="accountSlug" value={accountSlug} />
+          <Input name="display" placeholder="Display name" required />
+          <Input name="slug" placeholder="slug-from-display" />
+          <Button type="submit">
+            <PlusCircle data-icon="inline-start" />
+            Add tag
+          </Button>
+        </form>
+
+        <div className="divide-border divide-y rounded-lg border">
+          {data.tags.length > 0 ? (
+            data.tags.map((tag) => (
+              <div key={tag.id} className="space-y-2 px-3 py-3">
+                <form action={updateTagAction} className="grid gap-2">
+                  <input type="hidden" name="accountSlug" value={accountSlug} />
+                  <input type="hidden" name="id" value={tag.id} />
+                  <Input
+                    name="display"
+                    defaultValue={tag.display}
+                    aria-label={`${tag.display} display name`}
+                    required
+                  />
+                  <Input
+                    name="slug"
+                    defaultValue={tag.slug}
+                    aria-label={`${tag.display} slug`}
+                    required
+                  />
+
+                  <div className="flex justify-end gap-2">
+                    <Button type="submit" size="sm" variant="outline">
+                      Save
+                    </Button>
+                  </div>
+                </form>
+
+                <div className="flex justify-end">
+                  <DeleteButton
+                    accountSlug={accountSlug}
+                    id={tag.id}
+                    action={deleteTagAction}
+                  />
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-muted-foreground px-3 py-4 text-sm">
+              No tags yet.
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TagAssignmentForm({
+  accountSlug,
+  songId,
+  tags,
+  selectedTagIds,
+}: {
+  accountSlug: string;
+  songId: string;
+  tags: BandData['tags'];
+  selectedTagIds: Set<string>;
+}) {
+  if (tags.length === 0) {
+    return null;
+  }
+
+  return (
+    <details className="group">
+      <summary className="text-primary cursor-pointer text-xs font-medium marker:text-muted-foreground">
+        Edit tags
+      </summary>
+
+      <form action={updateSongTagsAction} className="mt-2 flex flex-col gap-2">
+        <input type="hidden" name="accountSlug" value={accountSlug} />
+        <input type="hidden" name="songId" value={songId} />
+
+        <div className="grid gap-1.5 sm:grid-cols-2">
+          {tags.map((tag) => (
+            <label
+              key={tag.id}
+              className="border-input bg-background flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
+            >
+              <input
+                type="checkbox"
+                name="tagId"
+                value={tag.id}
+                defaultChecked={selectedTagIds.has(tag.id)}
+                className="accent-primary"
+              />
+              <span className="truncate">{tag.display}</span>
+            </label>
+          ))}
+        </div>
+
+        <Button type="submit" size="sm" variant="outline">
+          Save tags
+        </Button>
+      </form>
+    </details>
   );
 }
 
@@ -549,9 +751,9 @@ function DeleteButton({
     <form action={action}>
       <input type="hidden" name="accountSlug" value={accountSlug} />
       <input type="hidden" name="id" value={id} />
-      <Button type="submit" size="sm" variant="ghost">
-        <Trash2 data-icon="inline-start" />
-        Delete
+      <Button type="submit" size="icon" variant="ghost">
+        <Trash2 className="size-4" />
+        <span className="sr-only">Delete</span>
       </Button>
     </form>
   );

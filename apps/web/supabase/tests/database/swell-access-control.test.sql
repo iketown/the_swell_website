@@ -82,6 +82,16 @@ select row_eq(
   'Management can manage songs'
 );
 
+select row_eq(
+  $$ select public.has_permission(
+    auth.uid(),
+    makerkit.get_account_id_by_slug('access-test'),
+    'tags.manage'::public.app_permissions
+  ) $$,
+  row(true::boolean),
+  'Management can manage tags'
+);
+
 select makerkit.authenticate_as('swell_access_performer');
 
 select row_eq(
@@ -102,6 +112,16 @@ select row_eq(
   ) $$,
   row(true::boolean),
   'Performers can read parts'
+);
+
+select row_eq(
+  $$ select public.has_permission(
+    auth.uid(),
+    makerkit.get_account_id_by_slug('access-test'),
+    'tags.read'::public.app_permissions
+  ) $$,
+  row(true::boolean),
+  'Performers can read tags'
 );
 
 select row_eq(
@@ -168,6 +188,16 @@ select row_eq(
   ) $$,
   row(false::boolean),
   'Guests start with no song access'
+);
+
+select row_eq(
+  $$ select public.has_permission(
+    auth.uid(),
+    makerkit.get_account_id_by_slug('access-test'),
+    'tags.read'::public.app_permissions
+  ) $$,
+  row(false::boolean),
+  'Guests start with no tag access'
 );
 
 select * from finish();

@@ -22,6 +22,8 @@ create type public.app_permissions as enum(
   'band.members.manage',
   'songs.read',
   'songs.manage',
+  'tags.read',
+  'tags.manage',
   'parts.read',
   'parts.manage',
   'calendar.read',

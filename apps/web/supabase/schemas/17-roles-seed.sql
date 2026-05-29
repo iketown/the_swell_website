@@ -72,6 +72,12 @@ values (
            'songs.manage'),
        (
            'owner',
+           'tags.read'),
+       (
+           'owner',
+           'tags.manage'),
+       (
+           'owner',
            'parts.read'),
        (
            'owner',
@@ -123,6 +129,12 @@ values (
            'songs.manage'),
        (
            'management',
+           'tags.read'),
+       (
+           'management',
+           'tags.manage'),
+       (
+           'management',
            'parts.read'),
        (
            'management',
@@ -148,6 +160,9 @@ values (
        (
            'performer',
            'songs.read'),
+       (
+           'performer',
+           'tags.read'),
        (
            'performer',
            'parts.read'),

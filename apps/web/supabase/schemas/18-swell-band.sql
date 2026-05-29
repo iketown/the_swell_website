@@ -147,7 +147,6 @@ create table if not exists
       bpm is null
       or bpm between 1 and 400
     ),
-    era varchar(120),
     status public.song_status not null default 'learning',
     duration_sec integer check (
       duration_sec is null
@@ -163,6 +162,38 @@ create table if not exists
   );
 
 comment on table public.songs is 'The Swell song repertoire';
+
+create table if not exists
+  public.tags (
+    id uuid not null default extensions.uuid_generate_v4(),
+    account_id uuid not null references public.accounts (id) on delete cascade,
+    display varchar(120) not null check (length(trim(display)) > 0),
+    slug varchar(120) not null check (slug = lower(slug)) check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+    created_by uuid references auth.users,
+    updated_by uuid references auth.users,
+    primary key (id),
+    unique (account_id, id),
+    unique (account_id, slug)
+  );
+
+comment on table public.tags is 'Flexible repertoire tags for songs, such as era, theme, or show section';
+
+create table if not exists
+  public.song_tags (
+    account_id uuid not null references public.accounts (id) on delete cascade,
+    song_id uuid not null,
+    tag_id uuid not null,
+    created_at timestamptz not null default current_timestamp,
+    created_by uuid references auth.users,
+    updated_by uuid references auth.users,
+    primary key (account_id, song_id, tag_id),
+    foreign key (account_id, song_id) references public.songs (account_id, id) on delete cascade,
+    foreign key (account_id, tag_id) references public.tags (account_id, id) on delete cascade
+  );
+
+comment on table public.song_tags is 'Many-to-many assignment of tags to songs';
 
 create table if not exists
   public.parts (
@@ -250,12 +281,16 @@ comment on table public.part_files is 'Guide MP3s and PDF charts attached to a p
 revoke all on public.members from anon, authenticated, service_role;
 revoke all on public.member_private_financial from anon, authenticated, service_role;
 revoke all on public.songs from anon, authenticated, service_role;
+revoke all on public.tags from anon, authenticated, service_role;
+revoke all on public.song_tags from anon, authenticated, service_role;
 revoke all on public.parts from anon, authenticated, service_role;
 revoke all on public.part_files from anon, authenticated, service_role;
 
 grant select, insert, update, delete on table public.members to authenticated, service_role;
 grant select, insert, update, delete on table public.member_private_financial to authenticated, service_role;
 grant select, insert, update, delete on table public.songs to authenticated, service_role;
+grant select, insert, update, delete on table public.tags to authenticated, service_role;
+grant select, insert, delete on table public.song_tags to authenticated, service_role;
 grant select, insert, update, delete on table public.parts to authenticated, service_role;
 grant select, insert, update, delete on table public.part_files to authenticated, service_role;
 
@@ -266,6 +301,9 @@ create index ix_members_instrument_capabilities on public.members using gin (ins
 create index ix_members_vocal_capabilities on public.members using gin (vocal_capabilities);
 
 create index ix_songs_account_status_title on public.songs (account_id, status, title);
+create index ix_tags_account_display on public.tags (account_id, display);
+create index ix_song_tags_tag_song on public.song_tags (account_id, tag_id, song_id);
+create index ix_song_tags_song_tag on public.song_tags (account_id, song_id, tag_id);
 
 create index ix_parts_account_default_member_song_order on public.parts (
   account_id,
@@ -300,6 +338,18 @@ for each row execute function public.trigger_set_timestamps();
 
 create trigger songs_set_user_tracking
 before insert or update on public.songs
+for each row execute function public.trigger_set_user_tracking();
+
+create trigger tags_set_timestamps
+before insert or update on public.tags
+for each row execute function public.trigger_set_timestamps();
+
+create trigger tags_set_user_tracking
+before insert or update on public.tags
+for each row execute function public.trigger_set_user_tracking();
+
+create trigger song_tags_set_user_tracking
+before insert on public.song_tags
 for each row execute function public.trigger_set_user_tracking();
 
 create trigger parts_set_timestamps
@@ -353,6 +403,8 @@ execute function kit.protect_member_owner_fields ();
 alter table public.members enable row level security;
 alter table public.member_private_financial enable row level security;
 alter table public.songs enable row level security;
+alter table public.tags enable row level security;
+alter table public.song_tags enable row level security;
 alter table public.parts enable row level security;
 alter table public.part_files enable row level security;
 
@@ -471,6 +523,58 @@ with
 create policy songs_owner_delete on public.songs for delete
   to authenticated using (
     public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy tags_read on public.tags for
+select
+  to authenticated using (
+    public.has_permission((select auth.uid()), account_id, 'tags.read'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy tags_manage_insert on public.tags for
+insert
+  to authenticated with check (
+    public.has_permission((select auth.uid()), account_id, 'tags.manage'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy tags_manage_update on public.tags for
+update
+  to authenticated using (
+    public.has_permission((select auth.uid()), account_id, 'tags.manage'::public.app_permissions)
+    or public.is_super_admin()
+  )
+with
+  check (
+    public.has_permission((select auth.uid()), account_id, 'tags.manage'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy tags_manage_delete on public.tags for delete
+  to authenticated using (
+    public.has_permission((select auth.uid()), account_id, 'tags.manage'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy song_tags_read on public.song_tags for
+select
+  to authenticated using (
+    public.has_permission((select auth.uid()), account_id, 'tags.read'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy song_tags_manage_insert on public.song_tags for
+insert
+  to authenticated with check (
+    public.has_permission((select auth.uid()), account_id, 'tags.manage'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy song_tags_manage_delete on public.song_tags for delete
+  to authenticated using (
+    public.has_permission((select auth.uid()), account_id, 'tags.manage'::public.app_permissions)
     or public.is_super_admin()
   );
 

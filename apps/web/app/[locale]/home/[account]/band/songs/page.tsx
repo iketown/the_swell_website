@@ -7,6 +7,7 @@ import { loadBandAdminData } from '../_lib/server/band-admin.loader';
 
 interface BandSongsPageProps {
   params: Promise<{ account: string }>;
+  searchParams: Promise<{ tag?: string }>;
 }
 
 export const generateMetadata = () => {
@@ -15,8 +16,12 @@ export const generateMetadata = () => {
   };
 };
 
-export default async function BandSongsPage({ params }: BandSongsPageProps) {
+export default async function BandSongsPage({
+  params,
+  searchParams,
+}: BandSongsPageProps) {
   const account = (await params).account;
+  const selectedTagSlug = (await searchParams).tag ?? null;
   const data = await loadBandAdminData(account);
 
   return (
@@ -27,7 +32,7 @@ export default async function BandSongsPage({ params }: BandSongsPageProps) {
         description={<AppBreadcrumbs />}
       />
 
-      <SongsAdmin data={data} />
+      <SongsAdmin data={data} selectedTagSlug={selectedTagSlug} />
     </PageBody>
   );
 }
