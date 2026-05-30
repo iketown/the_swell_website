@@ -450,18 +450,20 @@ INSERT INTO "public"."tags" (
     "id",
     "account_id",
     "display",
-    "slug"
+    "slug",
+    "color"
 )
 VALUES
-    ('b88b23a5-5ca3-4f1f-bb77-3ef0601a71c2', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Surf Songs', 'surf-songs'),
-    ('e151d8fe-151a-4bbf-9d3c-8dd8d6d09931', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Car Songs', 'car-songs'),
-    ('786f1952-99c8-411e-8de2-bf78bb1545dc', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Early Songs', 'early-songs'),
-    ('225d4d67-2b5b-480f-8c42-e43c1de22c51', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Pet Sounds', 'pet-sounds'),
-    ('377d29d5-0db5-4a17-8d3d-1f910d8af863', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Summer Days', 'summer-days'),
-    ('da4ac50e-7c59-4c78-9d24-6daf845c94fb', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Smile Era', 'smile-era')
+    ('b88b23a5-5ca3-4f1f-bb77-3ef0601a71c2', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Surf Songs', 'surf-songs', 'teal'),
+    ('e151d8fe-151a-4bbf-9d3c-8dd8d6d09931', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Car Songs', 'car-songs', 'coral'),
+    ('786f1952-99c8-411e-8de2-bf78bb1545dc', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Early Songs', 'early-songs', 'gold'),
+    ('225d4d67-2b5b-480f-8c42-e43c1de22c51', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Pet Sounds', 'pet-sounds', 'teal'),
+    ('377d29d5-0db5-4a17-8d3d-1f910d8af863', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Summer Days', 'summer-days', 'gold'),
+    ('da4ac50e-7c59-4c78-9d24-6daf845c94fb', '914c4883-7fe2-4d99-91a7-8b5c6a07f54d', 'Smile Era', 'smile-era', 'hibiscus')
 ON CONFLICT ("account_id", "slug") DO UPDATE
 SET
-    "display" = excluded."display";
+    "display" = excluded."display",
+    "color" = excluded."color";
 
 INSERT INTO "public"."song_tags" (
     "account_id",

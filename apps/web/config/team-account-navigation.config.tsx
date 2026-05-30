@@ -1,7 +1,6 @@
 import {
   CreditCard,
   FileAudio,
-  LayoutDashboard,
   Music,
   Settings,
   ShieldCheck,
@@ -40,31 +39,16 @@ const getRoutes = (account: string, permissions?: string[]) => {
       label: 'common.routes.application',
       children: [
         {
-          label: 'common.routes.dashboard',
+          label: 'Band Home',
           path: pathsConfig.app.accountHome.replace('[account]', account),
-          Icon: <LayoutDashboard className={iconClasses} />,
-          highlightMatch: `${pathsConfig.app.home}$`,
+          Icon: <Music className={iconClasses} />,
+          highlightMatch: `${createPath(pathsConfig.app.accountHome, account)}$`,
         },
       ],
     },
     {
       label: 'Band',
       children: [
-        canAny([
-          'band.members.read',
-          'band.members.manage',
-          'songs.read',
-          'songs.manage',
-          'parts.read',
-          'parts.manage',
-        ])
-          ? {
-              label: 'Band Home',
-              path: createPath('/home/[account]/band', account),
-              Icon: <Music className={iconClasses} />,
-              highlightMatch: `${createPath('/home/[account]/band', account)}$`,
-            }
-          : undefined,
         canAny(['band.members.read', 'band.members.manage'])
           ? {
               label: 'Band Members',

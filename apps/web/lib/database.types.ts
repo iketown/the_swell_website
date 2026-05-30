@@ -1152,6 +1152,7 @@ export type Database = {
       tags: {
         Row: {
           account_id: string
+          color: string
           created_at: string
           created_by: string | null
           display: string
@@ -1162,6 +1163,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          color?: string
           created_at?: string
           created_by?: string | null
           display: string
@@ -1172,6 +1174,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          color?: string
           created_at?: string
           created_by?: string | null
           display?: string

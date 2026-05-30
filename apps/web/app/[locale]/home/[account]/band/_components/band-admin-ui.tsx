@@ -1,9 +1,12 @@
 import Link from 'next/link';
 
 import {
+  ArrowDown,
+  ArrowUp,
   FileAudio,
   FileText,
   Music,
+  Pencil,
   PlusCircle,
   Tags,
   Trash2,
@@ -19,6 +22,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@kit/ui/card';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@kit/ui/dialog';
 import { Input } from '@kit/ui/input';
 import {
   Table,
@@ -28,6 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from '@kit/ui/table';
+import { cn } from '@kit/ui/utils';
 
 import { BandAdminData } from '../_lib/server/band-admin.loader';
 import {
@@ -63,6 +77,49 @@ const vocalSlots = [
 
 const songStatuses = ['active', 'learning', 'candidate', 'retired'] as const;
 const memberStatuses = ['candidate', 'active', 'inactive', 'alumni'] as const;
+const songSortKeys = ['title', 'status', 'key', 'bpm'] as const;
+const sortDirections = ['asc', 'desc'] as const;
+const tagColorOptions = [
+  {
+    value: 'teal',
+    label: 'Surf Blue',
+    className: 'border-[#5baec0] bg-[#c7edf3] text-[#064b5e]',
+    swatchClassName: 'bg-[#008aa3]',
+  },
+  {
+    value: 'coral',
+    label: 'Sunset Coral',
+    className: 'border-[#f18f77] bg-[#ffd3c5] text-[#812c1d]',
+    swatchClassName: 'bg-[#f05a3f]',
+  },
+  {
+    value: 'gold',
+    label: 'Golden Hour',
+    className: 'border-[#e5b322] bg-[#ffeb9f] text-[#654400]',
+    swatchClassName: 'bg-[#e6a700]',
+  },
+  {
+    value: 'avocado',
+    label: 'Avocado',
+    className: 'border-[#9aad3d] bg-[#dfeaa1] text-[#3d4a08]',
+    swatchClassName: 'bg-[#718b18]',
+  },
+  {
+    value: 'hibiscus',
+    label: 'Hibiscus',
+    className: 'border-[#d7759d] bg-[#f6c9dc] text-[#762143]',
+    swatchClassName: 'bg-[#c83f77]',
+  },
+  {
+    value: 'driftwood',
+    label: 'Driftwood',
+    className: 'border-[#b67c57] bg-[#ead3c3] text-[#52301c]',
+    swatchClassName: 'bg-[#8a5533]',
+  },
+] as const;
+
+type SongSortKey = (typeof songSortKeys)[number];
+type SortDirection = (typeof sortDirections)[number];
 
 export function BandOverview({ data }: { data: BandData }) {
   const assignedParts = data.parts.filter((part) => part.default_member_id);
@@ -174,22 +231,35 @@ export function MembersAdmin({ data }: { data: BandData }) {
 export function SongsAdmin({
   data,
   selectedTagSlug,
+  sortDirection,
+  sortKey,
 }: {
   data: BandData;
   selectedTagSlug?: string | null;
+  sortDirection?: string | null;
+  sortKey?: string | null;
 }) {
   const accountSlug = data.workspace.account.slug;
   const basePath = `/home/${accountSlug}/band/songs`;
+  const activeSortKey = parseSongSortKey(sortKey);
+  const activeSortDirection = parseSortDirection(sortDirection);
   const selectedTag = selectedTagSlug
     ? data.tags.find((tag) => tag.slug === selectedTagSlug)
     : null;
-  const songs = selectedTag
+  const filteredSongs = selectedTag
     ? data.songs.filter((song) =>
         (data.tagsBySongId.get(song.id) ?? []).some(
           (tag) => tag.id === selectedTag.id,
         ),
       )
     : data.songs;
+  const songs = sortSongs(filteredSongs, activeSortKey, activeSortDirection);
+  const createTagFilterPath = (tagSlug?: string | null) =>
+    createSongListPath(basePath, {
+      direction: activeSortDirection,
+      sort: activeSortKey,
+      tag: tagSlug ?? null,
+    });
 
   return (
     <div className="grid w-full max-w-6xl gap-6 pb-32 xl:grid-cols-[1fr_360px]">
@@ -206,7 +276,7 @@ export function SongsAdmin({
           <div className="flex flex-wrap items-center gap-2">
             <Button
               nativeButton={false}
-              render={<Link href={basePath} />}
+              render={<Link href={createTagFilterPath()} />}
               size="sm"
               variant={selectedTag ? 'outline' : 'default'}
             >
@@ -214,25 +284,54 @@ export function SongsAdmin({
             </Button>
 
             {data.tags.map((tag) => (
-              <Button
+              <Link
                 key={tag.id}
-                nativeButton={false}
-                render={<Link href={`${basePath}?tag=${tag.slug}`} />}
-                size="sm"
-                variant={selectedTag?.id === tag.id ? 'default' : 'outline'}
+                href={createTagFilterPath(tag.slug)}
+                className={cn(
+                  'focus-visible:border-ring focus-visible:ring-ring/50 rounded-4xl outline-none transition focus-visible:ring-3',
+                  selectedTag?.id === tag.id && 'ring-ring/30 ring-2',
+                )}
               >
-                {tag.display}
-              </Button>
+                <TagBadge tag={tag} />
+              </Link>
             ))}
           </div>
 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead>BPM</TableHead>
+                <SortableSongHeader
+                  basePath={basePath}
+                  currentDirection={activeSortDirection}
+                  currentSort={activeSortKey}
+                  label="Title"
+                  selectedTagSlug={selectedTag?.slug ?? null}
+                  sort="title"
+                />
+                <SortableSongHeader
+                  basePath={basePath}
+                  currentDirection={activeSortDirection}
+                  currentSort={activeSortKey}
+                  label="Status"
+                  selectedTagSlug={selectedTag?.slug ?? null}
+                  sort="status"
+                />
+                <SortableSongHeader
+                  basePath={basePath}
+                  currentDirection={activeSortDirection}
+                  currentSort={activeSortKey}
+                  label="Key"
+                  selectedTagSlug={selectedTag?.slug ?? null}
+                  sort="key"
+                />
+                <SortableSongHeader
+                  basePath={basePath}
+                  currentDirection={activeSortDirection}
+                  currentSort={activeSortKey}
+                  label="BPM"
+                  selectedTagSlug={selectedTag?.slug ?? null}
+                  sort="bpm"
+                />
                 <TableHead>Tags</TableHead>
                 <TableHead />
               </TableRow>
@@ -262,9 +361,7 @@ export function SongsAdmin({
                         <div className="flex flex-wrap gap-1.5">
                           {songTags.length > 0 ? (
                             songTags.map((tag) => (
-                              <Badge key={tag.id} variant="secondary">
-                                {tag.display}
-                              </Badge>
+                              <TagBadge key={tag.id} tag={tag} />
                             ))
                           ) : (
                             <span className="text-muted-foreground text-sm">
@@ -512,61 +609,302 @@ function ManageTagsCard({ data }: { data: BandData }) {
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-col gap-4">
         <form action={createTagAction} className="flex flex-col gap-3">
           <input type="hidden" name="accountSlug" value={accountSlug} />
           <Input name="display" placeholder="Display name" required />
           <Input name="slug" placeholder="slug-from-display" />
+          <TagColorPicker defaultColor="teal" />
           <Button type="submit">
             <PlusCircle data-icon="inline-start" />
             Add tag
           </Button>
         </form>
 
-        <div className="divide-border divide-y rounded-lg border">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2">
           {data.tags.length > 0 ? (
             data.tags.map((tag) => (
-              <div key={tag.id} className="space-y-2 px-3 py-3">
-                <form action={updateTagAction} className="grid gap-2">
-                  <input type="hidden" name="accountSlug" value={accountSlug} />
-                  <input type="hidden" name="id" value={tag.id} />
-                  <Input
-                    name="display"
-                    defaultValue={tag.display}
-                    aria-label={`${tag.display} display name`}
-                    required
-                  />
-                  <Input
-                    name="slug"
-                    defaultValue={tag.slug}
-                    aria-label={`${tag.display} slug`}
-                    required
-                  />
-
-                  <div className="flex justify-end gap-2">
-                    <Button type="submit" size="sm" variant="outline">
-                      Save
-                    </Button>
-                  </div>
-                </form>
-
-                <div className="flex justify-end">
-                  <DeleteButton
-                    accountSlug={accountSlug}
-                    id={tag.id}
-                    action={deleteTagAction}
-                  />
-                </div>
-              </div>
+              <TagEditDialog key={tag.id} accountSlug={accountSlug} tag={tag} />
             ))
           ) : (
-            <div className="text-muted-foreground px-3 py-4 text-sm">
+            <div className="text-muted-foreground col-span-full rounded-lg border px-3 py-4 text-sm">
               No tags yet.
             </div>
           )}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function SortableSongHeader({
+  basePath,
+  currentDirection,
+  currentSort,
+  label,
+  selectedTagSlug,
+  sort,
+}: {
+  basePath: string;
+  currentDirection: SortDirection | null;
+  currentSort: SongSortKey | null;
+  label: string;
+  selectedTagSlug: string | null;
+  sort: SongSortKey;
+}) {
+  const isActive = currentSort === sort;
+  const nextDirection: SortDirection =
+    isActive && currentDirection === 'asc' ? 'desc' : 'asc';
+  const href = createSongListPath(basePath, {
+    direction: nextDirection,
+    sort,
+    tag: selectedTagSlug,
+  });
+  const Icon = isActive
+    ? currentDirection === 'desc'
+      ? ArrowDown
+      : ArrowUp
+    : null;
+
+  return (
+    <TableHead>
+      <Link
+        href={href}
+        className={cn(
+          'hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 inline-flex items-center gap-1.5 rounded-md py-1 outline-none transition focus-visible:ring-3',
+          isActive && 'text-foreground',
+        )}
+      >
+        <span>{label}</span>
+        {Icon ? <Icon data-icon="inline-end" /> : null}
+      </Link>
+    </TableHead>
+  );
+}
+
+function parseSongSortKey(value?: string | null): SongSortKey | null {
+  return songSortKeys.includes(value as SongSortKey)
+    ? (value as SongSortKey)
+    : null;
+}
+
+function parseSortDirection(value?: string | null): SortDirection | null {
+  return sortDirections.includes(value as SortDirection)
+    ? (value as SortDirection)
+    : null;
+}
+
+function createSongListPath(
+  basePath: string,
+  params: {
+    direction: SortDirection | null;
+    sort: SongSortKey | null;
+    tag: string | null;
+  },
+) {
+  const searchParams = new URLSearchParams();
+
+  if (params.tag) {
+    searchParams.set('tag', params.tag);
+  }
+
+  if (params.sort) {
+    searchParams.set('sort', params.sort);
+    searchParams.set('dir', params.direction ?? 'asc');
+  }
+
+  const query = searchParams.toString();
+
+  return query ? `${basePath}?${query}` : basePath;
+}
+
+function sortSongs(
+  songs: BandData['songs'],
+  sort: SongSortKey | null,
+  direction: SortDirection | null,
+) {
+  if (!sort) {
+    return songs;
+  }
+
+  const multiplier = direction === 'desc' ? -1 : 1;
+
+  return [...songs].sort((first, second) => {
+    if (sort === 'title') {
+      return compareStrings(first.title, second.title) * multiplier;
+    }
+
+    if (sort === 'status') {
+      return compareStrings(first.status, second.status) * multiplier;
+    }
+
+    if (sort === 'key') {
+      return compareNullableStrings(
+        first.song_key,
+        second.song_key,
+        multiplier,
+      );
+    }
+
+    return compareNullableNumbers(first.bpm, second.bpm, multiplier);
+  });
+}
+
+function compareStrings(first: string, second: string) {
+  return first.localeCompare(second, undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+}
+
+function compareNullableStrings(
+  first: string | null,
+  second: string | null,
+  multiplier: number,
+) {
+  if (!first && !second) {
+    return 0;
+  }
+
+  if (!first) {
+    return 1;
+  }
+
+  if (!second) {
+    return -1;
+  }
+
+  return compareStrings(first, second) * multiplier;
+}
+
+function compareNullableNumbers(
+  first: number | null,
+  second: number | null,
+  multiplier: number,
+) {
+  if (first === null && second === null) {
+    return 0;
+  }
+
+  if (first === null) {
+    return 1;
+  }
+
+  if (second === null) {
+    return -1;
+  }
+
+  return (first - second) * multiplier;
+}
+
+function TagEditDialog({
+  accountSlug,
+  tag,
+}: {
+  accountSlug: string;
+  tag: BandData['tags'][number];
+}) {
+  const formId = `tag-form-${tag.id}`;
+  const formKey = `${tag.id}-${tag.updated_at}`;
+
+  return (
+    <Dialog>
+      <DialogTrigger className="focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 rounded-4xl outline-none focus-visible:ring-3">
+        <TagBadge tag={tag} className="h-7 max-w-full px-3 text-sm" />
+      </DialogTrigger>
+
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit tag</DialogTitle>
+          <DialogDescription>
+            Tags can mark eras, themes, show sections, or rehearsal priorities.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form
+          key={formKey}
+          id={formId}
+          action={updateTagAction}
+          className="flex flex-col gap-3"
+        >
+          <input type="hidden" name="accountSlug" value={accountSlug} />
+          <input type="hidden" name="id" value={tag.id} />
+
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            Display
+            <Input
+              name="display"
+              defaultValue={tag.display}
+              aria-label={`${tag.display} display name`}
+              required
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5 text-sm font-medium">
+            Slug
+            <Input
+              name="slug"
+              defaultValue={tag.slug}
+              aria-label={`${tag.display} slug`}
+              required
+            />
+          </label>
+
+          <TagColorPicker defaultColor={tag.color} />
+        </form>
+
+        <DialogFooter className="sm:items-center sm:justify-between">
+          <DeleteButton
+            accountSlug={accountSlug}
+            id={tag.id}
+            action={deleteTagAction}
+          />
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <DialogClose render={<Button type="button" variant="outline" />}>
+              Cancel
+            </DialogClose>
+
+            <DialogClose render={<Button type="submit" form={formId} />}>
+              <Pencil data-icon="inline-start" />
+              Save
+            </DialogClose>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TagColorPicker({ defaultColor }: { defaultColor: string }) {
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="text-sm font-medium">Color</legend>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {tagColorOptions.map((color) => (
+          <label
+            key={color.value}
+            className="border-input bg-background flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-xs"
+          >
+            <input
+              type="radio"
+              name="color"
+              value={color.value}
+              defaultChecked={defaultColor === color.value}
+              className="accent-primary"
+            />
+            <span
+              className={cn(
+                'size-3 shrink-0 rounded-full border',
+                color.swatchClassName,
+              )}
+            />
+            <span className="truncate">{color.label}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
@@ -607,6 +945,12 @@ function TagAssignmentForm({
                 value={tag.id}
                 defaultChecked={selectedTagIds.has(tag.id)}
                 className="accent-primary"
+              />
+              <span
+                className={cn(
+                  'size-2.5 shrink-0 rounded-full border',
+                  getTagColor(tag.color).swatchClassName,
+                )}
               />
               <span className="truncate">{tag.display}</span>
             </label>
@@ -735,6 +1079,32 @@ function BandQuickLink({
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+function TagBadge({
+  tag,
+  className,
+}: {
+  tag: BandData['tags'][number];
+  className?: string;
+}) {
+  const color = getTagColor(tag.color);
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn('border px-2.5', color.className, className)}
+    >
+      {tag.display}
+    </Badge>
+  );
+}
+
+function getTagColor(color: string | null) {
+  return (
+    tagColorOptions.find((option) => option.value === color) ??
+    tagColorOptions[0]
   );
 }
 

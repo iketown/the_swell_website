@@ -169,6 +169,16 @@ create table if not exists
     account_id uuid not null references public.accounts (id) on delete cascade,
     display varchar(120) not null check (length(trim(display)) > 0),
     slug varchar(120) not null check (slug = lower(slug)) check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+    color varchar(32) not null default 'teal' check (
+      color in (
+        'teal',
+        'coral',
+        'gold',
+        'avocado',
+        'hibiscus',
+        'driftwood'
+      )
+    ),
     created_at timestamptz not null default current_timestamp,
     updated_at timestamptz not null default current_timestamp,
     created_by uuid references auth.users,

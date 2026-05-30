@@ -68,9 +68,21 @@ const TagSlugSchema = z
   .toLowerCase()
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
+const TagColorSchema = z.enum([
+  'teal',
+  'coral',
+  'gold',
+  'sky',
+  'sand',
+  'avocado',
+  'hibiscus',
+  'driftwood',
+]);
+
 const CreateTagSchema = AccountSlugSchema.extend({
   display: z.string().trim().min(1).max(120),
   slug: z.preprocess(emptyToNull, TagSlugSchema.max(120).nullable()),
+  color: TagColorSchema.default('teal'),
 });
 
 const UpdateTagSchema = CreateTagSchema.extend({
@@ -334,6 +346,7 @@ export async function createTagAction(formData: FormData) {
     account_id: accountId,
     display: data.display,
     slug,
+    color: data.color,
   });
 
   if (error) {
@@ -376,6 +389,7 @@ export async function updateTagAction(formData: FormData) {
     .update({
       display: data.display,
       slug,
+      color: data.color,
     })
     .eq('account_id', accountId)
     .eq('id', data.id);

@@ -1,39 +1,33 @@
-import { use } from 'react';
-
-import { getTranslations } from 'next-intl/server';
-
 import { AppBreadcrumbs } from '@kit/ui/app-breadcrumbs';
 import { PageBody } from '@kit/ui/page';
-import { Trans } from '@kit/ui/trans';
 
-import { DashboardDemo } from './_components/dashboard-demo';
 import { TeamAccountLayoutPageHeader } from './_components/team-account-layout-page-header';
+import { BandOverview } from './band/_components/band-admin-ui';
+import { loadBandAdminData } from './band/_lib/server/band-admin.loader';
 
 interface TeamAccountHomePageProps {
   params: Promise<{ account: string }>;
 }
 
-export const generateMetadata = async () => {
-  const t = await getTranslations('teams');
-  const title = t('home.pageTitle');
-
+export const generateMetadata = () => {
   return {
-    title,
+    title: 'Band Home',
   };
 };
 
-function TeamAccountHomePage({ params }: TeamAccountHomePageProps) {
-  const account = use(params).account;
+async function TeamAccountHomePage({ params }: TeamAccountHomePageProps) {
+  const account = (await params).account;
+  const data = await loadBandAdminData(account);
 
   return (
     <PageBody>
       <TeamAccountLayoutPageHeader
         account={account}
-        title={<Trans i18nKey={'common.routes.dashboard'} />}
+        title="Band Home"
         description={<AppBreadcrumbs />}
       />
 
-      <DashboardDemo />
+      <BandOverview data={data} />
     </PageBody>
   );
 }
