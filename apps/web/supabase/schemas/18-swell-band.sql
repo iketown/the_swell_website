@@ -65,6 +65,11 @@ create type public.part_file_kind as enum(
   'chart_pdf'
 );
 
+create type public.song_part_assignment_area as enum(
+  'vocal',
+  'instrumental'
+);
+
 create
 or replace function kit.swell_slugify (value text) returns text
 set
@@ -328,6 +333,102 @@ comment on table public.parts is 'Per-song vocal and instrumental parts, includi
 comment on column public.parts.description is 'Member-facing notes for learning or performing this part';
 
 create table if not exists
+  public.song_files (
+    id uuid not null default extensions.uuid_generate_v4(),
+    account_id uuid not null references public.accounts (id) on delete cascade,
+    song_id uuid not null,
+    kind public.part_file_kind not null,
+    label varchar(255) not null check (length(trim(label)) > 0),
+    storage_path varchar(1000) not null check (length(trim(storage_path)) > 0),
+    mime_type varchar(120) not null,
+    size_bytes bigint check (
+      size_bytes is null
+      or size_bytes > 0
+    ),
+    order_index integer not null default 0 check (order_index >= 0),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+    created_by uuid references auth.users,
+    updated_by uuid references auth.users,
+    primary key (id),
+    unique (account_id, id),
+    foreign key (account_id, song_id) references public.songs (account_id, id) on delete cascade,
+    check (
+      (
+        kind = 'guide_audio'
+        and mime_type in ('audio/mpeg', 'audio/mp3')
+      )
+      or (
+        kind = 'chart_pdf'
+        and mime_type = 'application/pdf'
+      )
+    )
+  );
+
+comment on table public.song_files is 'Song-level uploaded MP3s and PDFs that can be attached to one or more parts';
+
+create table if not exists
+  public.song_part_assets (
+    id uuid not null default extensions.uuid_generate_v4(),
+    account_id uuid not null references public.accounts (id) on delete cascade,
+    song_id uuid not null,
+    kind public.part_file_kind not null,
+    title varchar(255) not null check (length(trim(title)) > 0),
+    description text,
+    storage_path varchar(1000) not null check (length(trim(storage_path)) > 0),
+    mime_type varchar(120) not null,
+    size_bytes bigint check (
+      size_bytes is null
+      or size_bytes > 0
+    ),
+    default_area public.song_part_assignment_area,
+    order_index integer not null default 0 check (order_index >= 0),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+    created_by uuid references auth.users,
+    updated_by uuid references auth.users,
+    primary key (id),
+    unique (account_id, id),
+    unique (account_id, storage_path),
+    foreign key (account_id, song_id) references public.songs (account_id, id) on delete cascade,
+    check (
+      (
+        kind = 'guide_audio'
+        and mime_type in ('audio/mpeg', 'audio/mp3')
+      )
+      or (
+        kind = 'chart_pdf'
+        and mime_type = 'application/pdf'
+      )
+    )
+  );
+
+comment on table public.song_part_assets is 'Single-file song parts that can be assigned to one or more members';
+
+create table if not exists
+  public.song_part_assignments (
+    id uuid not null default extensions.uuid_generate_v4(),
+    account_id uuid not null references public.accounts (id) on delete cascade,
+    song_id uuid not null,
+    asset_id uuid not null,
+    member_id uuid not null,
+    area public.song_part_assignment_area not null,
+    order_index integer not null default 0 check (order_index >= 0),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+    created_by uuid references auth.users,
+    updated_by uuid references auth.users,
+    primary key (id),
+    unique (account_id, id),
+    unique (account_id, asset_id, member_id, area),
+    foreign key (account_id, song_id) references public.songs (account_id, id) on delete cascade,
+    foreign key (account_id, asset_id) references public.song_part_assets (account_id, id) on delete cascade,
+    foreign key (account_id, member_id) references public.members (account_id, id) on delete cascade
+  );
+
+comment on table public.song_part_assignments is 'Assignments of song part assets to members in vocal or instrumental columns';
+
+create table if not exists
   public.part_files (
     id uuid not null default extensions.uuid_generate_v4(),
     account_id uuid not null references public.accounts (id) on delete cascade,
@@ -347,7 +448,6 @@ create table if not exists
     updated_by uuid references auth.users,
     primary key (id),
     unique (account_id, id),
-    unique (account_id, storage_path),
     foreign key (account_id, part_id) references public.parts (account_id, id) on delete cascade,
     check (
       (
@@ -372,6 +472,9 @@ revoke all on public.song_albums from anon, authenticated, service_role;
 revoke all on public.tags from anon, authenticated, service_role;
 revoke all on public.song_tags from anon, authenticated, service_role;
 revoke all on public.parts from anon, authenticated, service_role;
+revoke all on public.song_files from anon, authenticated, service_role;
+revoke all on public.song_part_assets from anon, authenticated, service_role;
+revoke all on public.song_part_assignments from anon, authenticated, service_role;
 revoke all on public.part_files from anon, authenticated, service_role;
 
 grant select, insert, update, delete on table public.members to authenticated, service_role;
@@ -382,6 +485,9 @@ grant select, insert, delete on table public.song_albums to authenticated, servi
 grant select, insert, update, delete on table public.tags to authenticated, service_role;
 grant select, insert, delete on table public.song_tags to authenticated, service_role;
 grant select, insert, update, delete on table public.parts to authenticated, service_role;
+grant select, insert, update, delete on table public.song_files to authenticated, service_role;
+grant select, insert, update, delete on table public.song_part_assets to authenticated, service_role;
+grant select, insert, update, delete on table public.song_part_assignments to authenticated, service_role;
 grant select, insert, update, delete on table public.part_files to authenticated, service_role;
 
 -- Indexes
@@ -408,6 +514,15 @@ create index ix_parts_account_default_member_song_order on public.parts (
 );
 create index ix_parts_song_order on public.parts (song_id, order_index);
 
+create index ix_song_files_song_kind_order on public.song_files (song_id, kind, order_index);
+create index ix_song_part_assets_song_area_order on public.song_part_assets (song_id, default_area, order_index);
+create index ix_song_part_assignments_song_member_area_order on public.song_part_assignments (
+  song_id,
+  member_id,
+  area,
+  order_index
+);
+create index ix_song_part_assignments_asset on public.song_part_assignments (asset_id);
 create index ix_part_files_part_kind_order on public.part_files (part_id, kind, order_index);
 
 -- Triggers
@@ -490,6 +605,30 @@ create trigger parts_set_user_tracking
 before insert or update on public.parts
 for each row execute function public.trigger_set_user_tracking();
 
+create trigger song_files_set_timestamps
+before insert or update on public.song_files
+for each row execute function public.trigger_set_timestamps();
+
+create trigger song_files_set_user_tracking
+before insert or update on public.song_files
+for each row execute function public.trigger_set_user_tracking();
+
+create trigger song_part_assets_set_timestamps
+before insert or update on public.song_part_assets
+for each row execute function public.trigger_set_timestamps();
+
+create trigger song_part_assets_set_user_tracking
+before insert or update on public.song_part_assets
+for each row execute function public.trigger_set_user_tracking();
+
+create trigger song_part_assignments_set_timestamps
+before insert or update on public.song_part_assignments
+for each row execute function public.trigger_set_timestamps();
+
+create trigger song_part_assignments_set_user_tracking
+before insert or update on public.song_part_assignments
+for each row execute function public.trigger_set_user_tracking();
+
 create trigger part_files_set_timestamps
 before insert or update on public.part_files
 for each row execute function public.trigger_set_timestamps();
@@ -538,6 +677,9 @@ alter table public.song_albums enable row level security;
 alter table public.tags enable row level security;
 alter table public.song_tags enable row level security;
 alter table public.parts enable row level security;
+alter table public.song_files enable row level security;
+alter table public.song_part_assets enable row level security;
+alter table public.song_part_assignments enable row level security;
 alter table public.part_files enable row level security;
 
 create policy members_read on public.members for
@@ -789,6 +931,102 @@ with
   );
 
 create policy parts_owner_delete on public.parts for delete
+  to authenticated using (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy song_files_read on public.song_files for
+select
+  to authenticated using (
+    public.has_role_on_account(account_id)
+    or public.is_super_admin()
+  );
+
+create policy song_files_owner_insert on public.song_files for
+insert
+  to authenticated with check (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy song_files_owner_update on public.song_files for
+update
+  to authenticated using (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  )
+with
+  check (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy song_files_owner_delete on public.song_files for delete
+  to authenticated using (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy song_part_assets_read on public.song_part_assets for
+select
+  to authenticated using (
+    public.has_role_on_account(account_id)
+    or public.is_super_admin()
+  );
+
+create policy song_part_assets_owner_insert on public.song_part_assets for
+insert
+  to authenticated with check (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy song_part_assets_owner_update on public.song_part_assets for
+update
+  to authenticated using (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  )
+with
+  check (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy song_part_assets_owner_delete on public.song_part_assets for delete
+  to authenticated using (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy song_part_assignments_read on public.song_part_assignments for
+select
+  to authenticated using (
+    public.has_role_on_account(account_id)
+    or public.is_super_admin()
+  );
+
+create policy song_part_assignments_owner_insert on public.song_part_assignments for
+insert
+  to authenticated with check (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy song_part_assignments_owner_update on public.song_part_assignments for
+update
+  to authenticated using (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  )
+with
+  check (
+    public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy song_part_assignments_owner_delete on public.song_part_assignments for delete
   to authenticated using (
     public.has_role_on_account(account_id, 'owner')
     or public.is_super_admin()

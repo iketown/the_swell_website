@@ -1031,6 +1031,257 @@ export type Database = {
           },
         ]
       }
+      song_files: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: Database["public"]["Enums"]["part_file_kind"]
+          label: string
+          mime_type: string
+          order_index: number
+          size_bytes: number | null
+          song_id: string
+          storage_path: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["part_file_kind"]
+          label: string
+          mime_type: string
+          order_index?: number
+          size_bytes?: number | null
+          song_id: string
+          storage_path: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["part_file_kind"]
+          label?: string
+          mime_type?: string
+          order_index?: number
+          size_bytes?: number | null
+          song_id?: string
+          storage_path?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "song_files_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_files_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_files_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_files_account_id_song_id_fkey"
+            columns: ["account_id", "song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["account_id", "id"]
+          },
+        ]
+      }
+      song_part_assets: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          default_area:
+            | Database["public"]["Enums"]["song_part_assignment_area"]
+            | null
+          description: string | null
+          id: string
+          kind: Database["public"]["Enums"]["part_file_kind"]
+          mime_type: string
+          order_index: number
+          size_bytes: number | null
+          song_id: string
+          storage_path: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          default_area?:
+            | Database["public"]["Enums"]["song_part_assignment_area"]
+            | null
+          description?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["part_file_kind"]
+          mime_type: string
+          order_index?: number
+          size_bytes?: number | null
+          song_id: string
+          storage_path: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          default_area?:
+            | Database["public"]["Enums"]["song_part_assignment_area"]
+            | null
+          description?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["part_file_kind"]
+          mime_type?: string
+          order_index?: number
+          size_bytes?: number | null
+          song_id?: string
+          storage_path?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "song_part_assets_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_part_assets_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_part_assets_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_part_assets_account_id_song_id_fkey"
+            columns: ["account_id", "song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["account_id", "id"]
+          },
+        ]
+      }
+      song_part_assignments: {
+        Row: {
+          account_id: string
+          area: Database["public"]["Enums"]["song_part_assignment_area"]
+          asset_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          member_id: string
+          order_index: number
+          song_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          area: Database["public"]["Enums"]["song_part_assignment_area"]
+          asset_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          member_id: string
+          order_index?: number
+          song_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          area?: Database["public"]["Enums"]["song_part_assignment_area"]
+          asset_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          member_id?: string
+          order_index?: number
+          song_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "song_part_assignments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_part_assignments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_part_assignments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_part_assignments_account_id_asset_id_fkey"
+            columns: ["account_id", "asset_id"]
+            isOneToOne: false
+            referencedRelation: "song_part_assets"
+            referencedColumns: ["account_id", "id"]
+          },
+          {
+            foreignKeyName: "song_part_assignments_account_id_member_id_fkey"
+            columns: ["account_id", "member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["account_id", "id"]
+          },
+          {
+            foreignKeyName: "song_part_assignments_account_id_song_id_fkey"
+            columns: ["account_id", "song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["account_id", "id"]
+          },
+        ]
+      }
       song_tags: {
         Row: {
           account_id: string
@@ -1675,6 +1926,7 @@ export type Database = {
       notification_channel: "in_app" | "email"
       notification_type: "info" | "warning" | "error"
       part_file_kind: "guide_audio" | "chart_pdf"
+      song_part_assignment_area: "vocal" | "instrumental"
       part_slot:
         | "vocal_1"
         | "vocal_2"
@@ -2408,6 +2660,7 @@ export const Constants = {
       notification_channel: ["in_app", "email"],
       notification_type: ["info", "warning", "error"],
       part_file_kind: ["guide_audio", "chart_pdf"],
+      song_part_assignment_area: ["vocal", "instrumental"],
       part_slot: [
         "vocal_1",
         "vocal_2",

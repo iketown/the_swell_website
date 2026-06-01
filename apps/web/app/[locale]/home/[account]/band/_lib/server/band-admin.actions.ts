@@ -14,6 +14,17 @@ type VocalSlot = Database['public']['Enums']['vocal_slot'];
 type PartSlot = Database['public']['Enums']['part_slot'];
 type PartType = Database['public']['Enums']['part_type'];
 type PartFileKind = Database['public']['Enums']['part_file_kind'];
+type SongPartAssignmentArea =
+  Database['public']['Enums']['song_part_assignment_area'];
+type SupabaseServerClient = ReturnType<
+  typeof getSupabaseServerClient<Database>
+>;
+
+const MAX_PART_FILE_UPLOAD_BYTES = 50 * 1024 * 1024;
+const MAX_PART_FILE_UPLOAD_LABEL = '50 MiB';
+const MAX_SONG_FILE_UPLOAD_COUNT = 25;
+const MAX_SONG_FILE_UPLOAD_TOTAL_BYTES = 250 * 1024 * 1024;
+const MAX_SONG_FILE_UPLOAD_TOTAL_LABEL = '250 MiB';
 
 const emptyToNull = (value: unknown) =>
   typeof value === 'string' && value.trim() === '' ? null : value;
@@ -21,6 +32,11 @@ const emptyToNull = (value: unknown) =>
 const optionalString = z.preprocess(
   emptyToNull,
   z.string().trim().min(1).nullable(),
+);
+
+const optionalPartFileTitle = z.preprocess(
+  emptyToNull,
+  z.string().trim().min(1).max(255).nullable(),
 );
 
 const optionalInt = z.preprocess((value) => {
@@ -121,7 +137,41 @@ const CreatePartSchema = AccountSlugSchema.extend({
 const UploadPartFileSchema = AccountSlugSchema.extend({
   partId: z.string().uuid(),
   kind: z.enum(['guide_audio', 'chart_pdf']),
-  label: optionalString,
+  label: optionalPartFileTitle,
+});
+
+const UploadSongFileSchema = AccountSlugSchema.extend({
+  songId: z.string().uuid(),
+  label: optionalPartFileTitle,
+  description: optionalString,
+});
+
+const AssignSongPartAssetSchema = AccountSlugSchema.extend({
+  songId: z.string().uuid(),
+  assetId: z.string().uuid(),
+  memberId: z.string().uuid(),
+  area: z.enum(['vocal', 'instrumental']),
+});
+
+const RemoveSongPartAssignmentSchema = AccountSlugSchema.extend({
+  assignmentId: z.string().uuid(),
+});
+
+const AttachExistingPartFileSchema = AccountSlugSchema.extend({
+  partId: z.string().uuid(),
+  sourceFileId: z.string().uuid(),
+});
+
+const AttachSongInventoryFileSchema = AccountSlugSchema.extend({
+  partId: z.string().uuid(),
+  sourceFileRef: z
+    .string()
+    .regex(/^(part|song):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
+});
+
+const UpdatePartFileTitleSchema = AccountSlugSchema.extend({
+  id: z.string().uuid(),
+  label: z.string().trim().min(1).max(255),
 });
 
 const DeleteRecordSchema = AccountSlugSchema.extend({
@@ -267,6 +317,12 @@ export async function uploadPartFileAction(formData: FormData) {
     throw new Error('Choose an MP3 or PDF file to upload.');
   }
 
+  if (uploadedFile.size > MAX_PART_FILE_UPLOAD_BYTES) {
+    throw new Error(
+      `Part files must be ${MAX_PART_FILE_UPLOAD_LABEL} or less.`,
+    );
+  }
+
   const { data: part, error: partError } = await client
     .from('parts')
     .select('id, song_id')
@@ -297,29 +353,47 @@ export async function uploadPartFileAction(formData: FormData) {
     throw uploadError;
   }
 
-  const { data: existingFile, error: existingError } = await client
-    .from('part_files')
-    .select('id')
-    .eq('account_id', accountId)
-    .eq('part_id', part.id)
-    .eq('kind', data.kind)
-    .order('order_index', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const { data: existingFile, error: existingError } =
+    data.kind === 'chart_pdf'
+      ? await client
+          .from('part_files')
+          .select('id')
+          .eq('account_id', accountId)
+          .eq('part_id', part.id)
+          .eq('kind', data.kind)
+          .order('order_index', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+      : { data: null, error: null };
 
   if (existingError) {
     throw existingError;
+  }
+
+  const { data: lastFile, error: lastFileError } = await client
+    .from('part_files')
+    .select('order_index')
+    .eq('account_id', accountId)
+    .eq('part_id', part.id)
+    .eq('kind', data.kind)
+    .order('order_index', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastFileError) {
+    throw lastFileError;
   }
 
   const fileRow = {
     account_id: accountId,
     part_id: part.id,
     kind: data.kind as PartFileKind,
-    label: data.label ?? fileMetadata.defaultLabel,
+    label: data.label ?? getDefaultPartFileTitle(uploadedFile, fileMetadata),
     storage_path: storagePath,
     mime_type: fileMetadata.mimeType,
     size_bytes: uploadedFile.size,
-    order_index: data.kind === 'guide_audio' ? 0 : 1,
+    order_index:
+      data.kind === 'guide_audio' ? (lastFile?.order_index ?? -1) + 1 : 1,
   };
 
   if (existingFile) {
@@ -343,7 +417,570 @@ export async function uploadPartFileAction(formData: FormData) {
   }
 
   revalidateBand(accountSlug);
-  revalidatePath(`/band/parts/${part.song_id}/parts`);
+  await revalidateSongPartsPath(client, accountId, part.song_id);
+}
+
+export async function uploadSongFileAction(formData: FormData) {
+  const data = UploadSongFileSchema.parse({
+    accountSlug: formData.get('accountSlug'),
+    songId: formData.get('songId'),
+    label: formData.get('label'),
+    description: formData.get('description'),
+  });
+  const uploadedFiles = formData
+    .getAll('file')
+    .filter((file): file is File => file instanceof File && file.size > 0);
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  if (uploadedFiles.length === 0) {
+    throw new Error('Choose one or more MP3 or PDF files to upload.');
+  }
+
+  if (uploadedFiles.length > MAX_SONG_FILE_UPLOAD_COUNT) {
+    throw new Error(
+      `Upload ${MAX_SONG_FILE_UPLOAD_COUNT} song files or fewer at a time.`,
+    );
+  }
+
+  const totalUploadBytes = uploadedFiles.reduce(
+    (total, file) => total + file.size,
+    0,
+  );
+
+  if (totalUploadBytes > MAX_SONG_FILE_UPLOAD_TOTAL_BYTES) {
+    throw new Error(
+      `Song file batches must be ${MAX_SONG_FILE_UPLOAD_TOTAL_LABEL} or less.`,
+    );
+  }
+
+  for (const file of uploadedFiles) {
+    if (file.size > MAX_PART_FILE_UPLOAD_BYTES) {
+      throw new Error(
+        `Each song file must be ${MAX_PART_FILE_UPLOAD_LABEL} or less.`,
+      );
+    }
+  }
+
+  const { data: song, error: songError } = await client
+    .from('songs')
+    .select('id, slug')
+    .eq('account_id', accountId)
+    .eq('id', data.songId)
+    .single();
+
+  if (songError) {
+    throw songError;
+  }
+
+  const { data: lastFiles, error: lastFilesError } = await client
+    .from('song_files')
+    .select('kind, order_index')
+    .eq('account_id', accountId)
+    .eq('song_id', song.id)
+    .order('order_index', { ascending: false });
+
+  if (lastFilesError) {
+    throw lastFilesError;
+  }
+
+  const nextOrderIndexByKind: Record<PartFileKind, number> = {
+    chart_pdf: -1,
+    guide_audio: -1,
+  };
+
+  for (const file of lastFiles ?? []) {
+    nextOrderIndexByKind[file.kind] = Math.max(
+      nextOrderIndexByKind[file.kind],
+      file.order_index ?? -1,
+    );
+  }
+
+  for (const [fileIndex, uploadedFile] of uploadedFiles.entries()) {
+    const fileMetadata = getUploadedSongFileMetadata(uploadedFile);
+    const storagePath = [
+      accountId,
+      'songs',
+      song.id,
+      `${fileMetadata.kind}-${Date.now()}-${fileIndex}.${fileMetadata.extension}`,
+    ].join('/');
+
+    const { error: uploadError } = await client.storage
+      .from('band_assets')
+      .upload(storagePath, uploadedFile, {
+        contentType: fileMetadata.mimeType,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    nextOrderIndexByKind[fileMetadata.kind] += 1;
+
+    const title =
+      uploadedFiles.length === 1 && data.label
+        ? data.label
+        : getDefaultPartFileTitle(uploadedFile, fileMetadata);
+    const orderIndex = nextOrderIndexByKind[fileMetadata.kind];
+
+    const { error: insertError } = await client.from('song_files').insert({
+      account_id: accountId,
+      song_id: song.id,
+      kind: fileMetadata.kind,
+      label: title,
+      storage_path: storagePath,
+      mime_type: fileMetadata.mimeType,
+      size_bytes: uploadedFile.size,
+      order_index: orderIndex,
+    });
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    const { error: assetInsertError } = await client
+      .from('song_part_assets')
+      .insert({
+        account_id: accountId,
+        song_id: song.id,
+        kind: fileMetadata.kind,
+        title,
+        description: data.description,
+        storage_path: storagePath,
+        mime_type: fileMetadata.mimeType,
+        size_bytes: uploadedFile.size,
+        default_area:
+          fileMetadata.kind === 'guide_audio'
+            ? ('vocal' satisfies SongPartAssignmentArea)
+            : null,
+        order_index: orderIndex,
+      });
+
+    if (assetInsertError) {
+      throw assetInsertError;
+    }
+  }
+
+  revalidateBand(accountSlug);
+  revalidatePath(`/band/parts/${song.slug}`);
+  revalidatePath(`/band/parts/${song.slug}/parts`);
+}
+
+export async function assignSongPartAssetAction(
+  input: z.infer<typeof AssignSongPartAssetSchema>,
+) {
+  const data = AssignSongPartAssetSchema.parse(input);
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { data: asset, error: assetError } = await client
+    .from('song_part_assets')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', data.assetId)
+    .single();
+
+  if (assetError) {
+    throw assetError;
+  }
+
+  if (asset.song_id !== data.songId) {
+    throw new Error('Part assets can only be assigned within their song.');
+  }
+
+  const { error: memberError } = await client
+    .from('members')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('id', data.memberId)
+    .single();
+
+  if (memberError) {
+    throw memberError;
+  }
+
+  const { data: existingAssignment, error: existingAssignmentError } =
+    await client
+      .from('song_part_assignments')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('asset_id', data.assetId)
+      .eq('member_id', data.memberId)
+      .eq('area', data.area)
+      .maybeSingle();
+
+  if (existingAssignmentError) {
+    throw existingAssignmentError;
+  }
+
+  if (existingAssignment) {
+    revalidateBand(accountSlug);
+    await revalidateSongPartsPath(client, accountId, data.songId);
+    return;
+  }
+
+  const { data: lastAssignment, error: lastAssignmentError } = await client
+    .from('song_part_assignments')
+    .select('order_index')
+    .eq('account_id', accountId)
+    .eq('song_id', data.songId)
+    .eq('member_id', data.memberId)
+    .eq('area', data.area)
+    .order('order_index', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastAssignmentError) {
+    throw lastAssignmentError;
+  }
+
+  const { error: insertError } = await client
+    .from('song_part_assignments')
+    .insert({
+      account_id: accountId,
+      song_id: data.songId,
+      asset_id: data.assetId,
+      member_id: data.memberId,
+      area: data.area as SongPartAssignmentArea,
+      order_index: (lastAssignment?.order_index ?? -1) + 1,
+    });
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, data.songId);
+}
+
+export async function removeSongPartAssignmentAction(
+  input: z.infer<typeof RemoveSongPartAssignmentSchema>,
+) {
+  const data = RemoveSongPartAssignmentSchema.parse(input);
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { data: assignment, error: assignmentError } = await client
+    .from('song_part_assignments')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', data.assignmentId)
+    .single();
+
+  if (assignmentError) {
+    throw assignmentError;
+  }
+
+  const { error: deleteError } = await client
+    .from('song_part_assignments')
+    .delete()
+    .eq('account_id', accountId)
+    .eq('id', assignment.id);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, assignment.song_id);
+}
+
+export async function attachSongInventoryFileToPartAction(
+  formData: FormData,
+) {
+  const data = AttachSongInventoryFileSchema.parse(
+    Object.fromEntries(formData),
+  );
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+  const [sourceType, sourceFileId] = data.sourceFileRef.split(':') as [
+    'part' | 'song',
+    string,
+  ];
+
+  const { data: targetPart, error: targetPartError } = await client
+    .from('parts')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', data.partId)
+    .single();
+
+  if (targetPartError) {
+    throw targetPartError;
+  }
+
+  let sourceFile: {
+    kind: PartFileKind;
+    label: string;
+    mime_type: string;
+    size_bytes: number | null;
+    song_id: string;
+    storage_path: string;
+  };
+
+  if (sourceType === 'song') {
+    const { data: songFile, error: songFileError } = await client
+      .from('song_files')
+      .select('kind, label, storage_path, mime_type, size_bytes, song_id')
+      .eq('account_id', accountId)
+      .eq('id', sourceFileId)
+      .single();
+
+    if (songFileError) {
+      throw songFileError;
+    }
+
+    sourceFile = songFile;
+  } else {
+    const { data: partFile, error: partFileError } = await client
+      .from('part_files')
+      .select('kind, label, storage_path, mime_type, size_bytes, part_id')
+      .eq('account_id', accountId)
+      .eq('id', sourceFileId)
+      .single();
+
+    if (partFileError) {
+      throw partFileError;
+    }
+
+    const { data: sourcePart, error: sourcePartError } = await client
+      .from('parts')
+      .select('song_id')
+      .eq('account_id', accountId)
+      .eq('id', partFile.part_id)
+      .single();
+
+    if (sourcePartError) {
+      throw sourcePartError;
+    }
+
+    sourceFile = { ...partFile, song_id: sourcePart.song_id };
+  }
+
+  if (sourceFile.song_id !== targetPart.song_id) {
+    throw new Error('Files can only be attached within the same song.');
+  }
+
+  const { data: existingReference, error: existingReferenceError } =
+    await client
+      .from('part_files')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('part_id', targetPart.id)
+      .eq('storage_path', sourceFile.storage_path)
+      .maybeSingle();
+
+  if (existingReferenceError) {
+    throw existingReferenceError;
+  }
+
+  if (existingReference) {
+    revalidateBand(accountSlug);
+    await revalidateSongPartsPath(client, accountId, targetPart.song_id);
+    return;
+  }
+
+  const { data: lastFile, error: lastFileError } = await client
+    .from('part_files')
+    .select('order_index')
+    .eq('account_id', accountId)
+    .eq('part_id', targetPart.id)
+    .eq('kind', sourceFile.kind)
+    .order('order_index', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastFileError) {
+    throw lastFileError;
+  }
+
+  const { error: insertError } = await client.from('part_files').insert({
+    account_id: accountId,
+    part_id: targetPart.id,
+    kind: sourceFile.kind,
+    label: sourceFile.label,
+    storage_path: sourceFile.storage_path,
+    mime_type: sourceFile.mime_type,
+    size_bytes: sourceFile.size_bytes,
+    order_index: (lastFile?.order_index ?? -1) + 1,
+  });
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, targetPart.song_id);
+}
+
+export async function attachExistingPartFileAction(formData: FormData) {
+  const data = AttachExistingPartFileSchema.parse(Object.fromEntries(formData));
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { data: targetPart, error: targetPartError } = await client
+    .from('parts')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', data.partId)
+    .single();
+
+  if (targetPartError) {
+    throw targetPartError;
+  }
+
+  const { data: sourceFile, error: sourceFileError } = await client
+    .from('part_files')
+    .select('id, part_id, kind, label, storage_path, mime_type, size_bytes')
+    .eq('account_id', accountId)
+    .eq('id', data.sourceFileId)
+    .single();
+
+  if (sourceFileError) {
+    throw sourceFileError;
+  }
+
+  const { data: sourcePart, error: sourcePartError } = await client
+    .from('parts')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', sourceFile.part_id)
+    .single();
+
+  if (sourcePartError) {
+    throw sourcePartError;
+  }
+
+  if (sourcePart.song_id !== targetPart.song_id) {
+    throw new Error(
+      'Existing files can only be attached within the same song.',
+    );
+  }
+
+  const { data: existingReference, error: existingReferenceError } =
+    await client
+      .from('part_files')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('part_id', targetPart.id)
+      .eq('storage_path', sourceFile.storage_path)
+      .maybeSingle();
+
+  if (existingReferenceError) {
+    throw existingReferenceError;
+  }
+
+  if (existingReference) {
+    revalidateBand(accountSlug);
+    return;
+  }
+
+  const { data: lastFile, error: lastFileError } = await client
+    .from('part_files')
+    .select('order_index')
+    .eq('account_id', accountId)
+    .eq('part_id', targetPart.id)
+    .eq('kind', sourceFile.kind)
+    .order('order_index', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastFileError) {
+    throw lastFileError;
+  }
+
+  const { error: insertError } = await client.from('part_files').insert({
+    account_id: accountId,
+    part_id: targetPart.id,
+    kind: sourceFile.kind,
+    label: sourceFile.label,
+    storage_path: sourceFile.storage_path,
+    mime_type: sourceFile.mime_type,
+    size_bytes: sourceFile.size_bytes,
+    order_index: (lastFile?.order_index ?? -1) + 1,
+  });
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, targetPart.song_id);
+}
+
+export async function updatePartFileTitleAction(formData: FormData) {
+  const data = UpdatePartFileTitleSchema.parse(Object.fromEntries(formData));
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { error } = await client
+    .from('part_files')
+    .update({ label: data.label })
+    .eq('account_id', accountId)
+    .eq('id', data.id)
+    .eq('kind', 'guide_audio');
+
+  if (error) {
+    throw error;
+  }
+
+  revalidateBand(accountSlug);
+}
+
+export async function removePartFileReferenceAction(formData: FormData) {
+  const data = DeleteRecordSchema.parse(Object.fromEntries(formData));
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { data: file, error: fileError } = await client
+    .from('part_files')
+    .select('id, part_id')
+    .eq('account_id', accountId)
+    .eq('id', data.id)
+    .single();
+
+  if (fileError) {
+    throw fileError;
+  }
+
+  const { data: part, error: partError } = await client
+    .from('parts')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', file.part_id)
+    .single();
+
+  if (partError) {
+    throw partError;
+  }
+
+  const { error: deleteError } = await client
+    .from('part_files')
+    .delete()
+    .eq('account_id', accountId)
+    .eq('id', file.id);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, part.song_id);
 }
 
 export async function deleteBandMemberAction(formData: FormData) {
@@ -568,6 +1205,24 @@ function revalidateBand(accountSlug: string) {
   revalidatePath('/band/parts');
 }
 
+async function revalidateSongPartsPath(
+  client: SupabaseServerClient,
+  accountId: string,
+  songId: string,
+) {
+  const { data } = await client
+    .from('songs')
+    .select('slug')
+    .eq('account_id', accountId)
+    .eq('id', songId)
+    .maybeSingle();
+
+  if (data?.slug) {
+    revalidatePath(`/band/parts/${data.slug}`);
+    revalidatePath(`/band/parts/${data.slug}/parts`);
+  }
+}
+
 function slugifyTag(display: string) {
   return TagSlugSchema.parse(
     display
@@ -576,6 +1231,30 @@ function slugifyTag(display: string) {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, ''),
   );
+}
+
+function getUploadedSongFileMetadata(file: File) {
+  const fileName = file.name.toLowerCase();
+
+  if (
+    file.type === 'audio/mpeg' ||
+    file.type === 'audio/mp3' ||
+    fileName.endsWith('.mp3')
+  ) {
+    return {
+      ...getPartFileMetadata(file, 'guide_audio'),
+      kind: 'guide_audio' as const,
+    };
+  }
+
+  if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
+    return {
+      ...getPartFileMetadata(file, 'chart_pdf'),
+      kind: 'chart_pdf' as const,
+    };
+  }
+
+  throw new Error('Song files must be MP3 or PDF files.');
 }
 
 function getPartFileMetadata(file: File, kind: PartFileKind) {
@@ -610,4 +1289,13 @@ function getPartFileMetadata(file: File, kind: PartFileKind) {
       ? 'Guide audio must be an MP3 file.'
       : 'Charts must be PDF files.',
   );
+}
+
+function getDefaultPartFileTitle(
+  file: File,
+  metadata: ReturnType<typeof getPartFileMetadata>,
+) {
+  const title = file.name.replace(/\.[^/.]+$/, '').trim();
+
+  return title || metadata.defaultLabel;
 }

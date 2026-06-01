@@ -4,10 +4,9 @@ import { notFound } from 'next/navigation';
 import {
   ArrowLeft,
   ExternalLink,
-  FileAudio,
-  FileText,
   Music2,
-  Upload,
+  Paperclip,
+  Trash2,
 } from 'lucide-react';
 
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
@@ -21,7 +20,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@kit/ui/card';
-import { Input } from '@kit/ui/input';
 import { PageBody } from '@kit/ui/page';
 import {
   Table,
@@ -33,10 +31,16 @@ import {
 } from '@kit/ui/table';
 
 import { TeamAccountLayoutPageHeader } from '~/home/[account]/_components/team-account-layout-page-header';
-import { uploadPartFileAction } from '~/home/[account]/band/_lib/server/band-admin.actions';
+import {
+  attachSongInventoryFileToPartAction,
+  removePartFileReferenceAction,
+} from '~/home/[account]/band/_lib/server/band-admin.actions';
 import { loadBandAdminData } from '~/home/[account]/band/_lib/server/band-admin.loader';
 
 import { loadSwellWorkspace } from '../../../../_lib/server/swell-workspace.loader';
+import { PartFileBadge } from '../../../_components/part-file-badge';
+import { PartFileTitleEditor } from './_components/part-file-title-editor';
+import { PartFileUploadForm } from './_components/part-file-upload-form';
 
 interface PartDetailPageProps {
   params: Promise<{ partSlug: string; songSlug: string }>;
@@ -75,6 +79,18 @@ export default async function PartDetailPage({ params }: PartDetailPageProps) {
     : null;
   const files = data.filesByPartId.get(part.id) ?? [];
   const signedFiles = await getSignedPartFiles(files);
+  const attachedStoragePaths = new Set(files.map((file) => file.storage_path));
+  const songPartById = new Map(
+    data.parts
+      .filter((candidate) => candidate.song_id === song.id)
+      .map((candidate) => [candidate.id, candidate]),
+  );
+  const attachableSongFiles = getAttachableSongFiles({
+    attachedStoragePaths,
+    files: data.files,
+    songPartById,
+    songFiles: data.songFilesBySongId.get(song.id) ?? [],
+  });
 
   return (
     <PageBody>
@@ -88,7 +104,7 @@ export default async function PartDetailPage({ params }: PartDetailPageProps) {
         <div>
           <Button
             nativeButton={false}
-            render={<Link href={`/band/parts/${song.slug}/parts`} />}
+            render={<Link href={`/band/parts/${song.slug}`} />}
             variant="ghost"
           >
             <ArrowLeft data-icon="inline-start" />
@@ -182,39 +198,56 @@ export default async function PartDetailPage({ params }: PartDetailPageProps) {
               />
             </div>
 
-            <Table>
+            {attachableSongFiles.length > 0 ? (
+              <AttachExistingPartFileForm
+                accountSlug={workspace.account.slug}
+                files={attachableSongFiles}
+                partId={part.id}
+              />
+            ) : null}
+
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead>File</TableHead>
-                  <TableHead>Kind</TableHead>
+                  <TableHead className="w-[32%]">File</TableHead>
+                  <TableHead className="w-24">Kind</TableHead>
                   <TableHead>Preview</TableHead>
+                  <TableHead className="w-12">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {signedFiles.length > 0 ? (
                   signedFiles.map((file) => (
                     <TableRow key={file.id}>
-                      <TableCell className="font-medium">
-                        {file.label ?? formatSlot(file.kind)}
-                        <div className="text-muted-foreground mt-1 font-mono text-xs">
+                      <TableCell className="min-w-0 font-medium">
+                        {file.kind === 'guide_audio' ? (
+                          <PartFileTitleEditor
+                            accountSlug={workspace.account.slug}
+                            fileId={file.id}
+                            title={file.label ?? ''}
+                          />
+                        ) : (
+                          (file.label ?? formatSlot(file.kind))
+                        )}
+                        <div className="text-muted-foreground mt-1 truncate font-mono text-xs">
                           {file.storage_path}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
-                          {file.kind === 'guide_audio' ? (
-                            <FileAudio data-icon="inline-start" />
-                          ) : (
-                            <FileText data-icon="inline-start" />
-                          )}
-                          {file.kind === 'guide_audio' ? 'MP3' : 'PDF'}
-                        </Badge>
+                        <PartFileBadge
+                          kind={file.kind}
+                          label={file.label ?? formatSlot(file.kind)}
+                          labelClassName="max-w-32"
+                          previewUrl={file.signedUrl}
+                        />
                       </TableCell>
                       <TableCell>
                         {file.signedUrl ? (
                           file.kind === 'guide_audio' ? (
                             <audio
-                              className="w-full max-w-sm"
+                              className="w-full min-w-72"
                               controls
                               preload="metadata"
                               src={file.signedUrl}
@@ -242,13 +275,20 @@ export default async function PartDetailPage({ params }: PartDetailPageProps) {
                           </span>
                         )}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <RemovePartFileReferenceForm
+                          accountSlug={workspace.account.slug}
+                          fileId={file.id}
+                          title={file.label ?? formatSlot(file.kind)}
+                        />
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
                     <TableCell
                       className="text-muted-foreground text-sm"
-                      colSpan={3}
+                      colSpan={4}
                     >
                       No files are attached to this part yet.
                     </TableCell>
@@ -263,35 +303,66 @@ export default async function PartDetailPage({ params }: PartDetailPageProps) {
   );
 }
 
-function PartFileUploadForm({
-  accept,
+function AttachExistingPartFileForm({
   accountSlug,
-  buttonLabel,
-  kind,
+  files,
   partId,
 }: {
-  accept: string;
   accountSlug: string;
-  buttonLabel: string;
-  kind: 'chart_pdf' | 'guide_audio';
+  files: AttachableSongFile[];
   partId: string;
 }) {
   return (
     <form
-      action={uploadPartFileAction}
-      className="border-input bg-muted/30 flex flex-col gap-3 rounded-lg border p-3"
+      action={attachSongInventoryFileToPartAction}
+      className="border-input bg-background flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center"
     >
       <input type="hidden" name="accountSlug" value={accountSlug} />
       <input type="hidden" name="partId" value={partId} />
-      <input type="hidden" name="kind" value={kind} />
-      <Input
-        name="label"
-        placeholder={kind === 'guide_audio' ? 'MP3 label' : 'PDF label'}
-      />
-      <Input accept={accept} name="file" required type="file" />
-      <Button type="submit" size="sm">
-        <Upload data-icon="inline-start" />
-        {buttonLabel}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-sm font-medium">Attach existing song file</span>
+        <select
+          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-9 min-w-0 rounded-lg border px-3 text-sm outline-none focus-visible:ring-3"
+          name="sourceFileRef"
+          required
+        >
+          {files.map((file) => (
+            <option key={file.sourceFileRef} value={file.sourceFileRef}>
+              {file.label} ({file.kind === 'guide_audio' ? 'MP3' : 'PDF'} ·{' '}
+              {file.sourceLabel})
+            </option>
+          ))}
+        </select>
+      </div>
+      <Button type="submit" size="sm" variant="outline">
+        <Paperclip data-icon="inline-start" />
+        Attach
+      </Button>
+    </form>
+  );
+}
+
+function RemovePartFileReferenceForm({
+  accountSlug,
+  fileId,
+  title,
+}: {
+  accountSlug: string;
+  fileId: string;
+  title: string;
+}) {
+  return (
+    <form action={removePartFileReferenceAction}>
+      <input type="hidden" name="accountSlug" value={accountSlug} />
+      <input type="hidden" name="id" value={fileId} />
+      <Button
+        aria-label={`Remove ${title} from this part`}
+        type="submit"
+        size="icon"
+        variant="ghost"
+        className="text-muted-foreground hover:text-destructive size-8"
+      >
+        <Trash2 />
       </Button>
     </form>
   );
@@ -314,6 +385,89 @@ async function getSignedPartFiles<T extends { storage_path: string }>(
       };
     }),
   );
+}
+
+type AttachableSongFile = {
+  id: string;
+  kind: 'chart_pdf' | 'guide_audio';
+  label: string;
+  sourceFileRef: string;
+  sourceLabel: string;
+};
+
+function getAttachableSongFiles({
+  attachedStoragePaths,
+  files,
+  songPartById,
+  songFiles,
+}: {
+  attachedStoragePaths: Set<string>;
+  files: Array<{
+    id: string;
+    kind: 'chart_pdf' | 'guide_audio';
+    label: string;
+    part_id: string;
+    storage_path: string;
+  }>;
+  songPartById: Map<string, { label: string | null; slot: string }>;
+  songFiles: Array<{
+    id: string;
+    kind: 'chart_pdf' | 'guide_audio';
+    label: string;
+    storage_path: string;
+  }>;
+}) {
+  const seenStoragePaths = new Set<string>();
+  const options: AttachableSongFile[] = [];
+
+  for (const file of songFiles) {
+    if (
+      attachedStoragePaths.has(file.storage_path) ||
+      seenStoragePaths.has(file.storage_path)
+    ) {
+      continue;
+    }
+
+    seenStoragePaths.add(file.storage_path);
+    options.push({
+      id: file.id,
+      kind: file.kind,
+      label: file.label,
+      sourceFileRef: `song:${file.id}`,
+      sourceLabel: 'Song upload',
+    });
+  }
+
+  for (const file of files) {
+    const sourcePart = songPartById.get(file.part_id);
+
+    if (!sourcePart || attachedStoragePaths.has(file.storage_path)) {
+      continue;
+    }
+
+    if (seenStoragePaths.has(file.storage_path)) {
+      continue;
+    }
+
+    seenStoragePaths.add(file.storage_path);
+    options.push({
+      id: file.id,
+      kind: file.kind,
+      label: file.label,
+      sourceFileRef: `part:${file.id}`,
+      sourceLabel: sourcePart.label ?? formatSlot(sourcePart.slot),
+    });
+  }
+
+  return options.sort((a, b) => {
+    const byKind = a.kind.localeCompare(b.kind);
+
+    if (byKind !== 0) {
+      return byKind;
+    }
+
+    return a.label.localeCompare(b.label);
+  });
 }
 
 function MetadataBlock({

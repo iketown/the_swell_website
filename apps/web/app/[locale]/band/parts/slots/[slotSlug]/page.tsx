@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { ArrowLeft, FileAudio, FileText } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
+import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { AppBreadcrumbs } from '@kit/ui/app-breadcrumbs';
-import { Badge } from '@kit/ui/badge';
 import { Button } from '@kit/ui/button';
 import {
   Card,
@@ -27,6 +27,7 @@ import { TeamAccountLayoutPageHeader } from '~/home/[account]/_components/team-a
 import { loadBandAdminData } from '~/home/[account]/band/_lib/server/band-admin.loader';
 
 import { loadSwellWorkspace } from '../../../_lib/server/swell-workspace.loader';
+import { PartFileBadge } from '../../_components/part-file-badge';
 
 interface SlotPartsPageProps {
   params: Promise<{ slotSlug: string }>;
@@ -65,6 +66,10 @@ export default async function SlotPartsPage({ params }: SlotPartsPageProps) {
   const workspace = await loadSwellWorkspace();
   const data = await loadBandAdminData(workspace.account.slug);
   const parts = data.parts.filter((part) => part.slot === slot);
+  const filesForSlot = parts.flatMap(
+    (part) => data.filesByPartId.get(part.id) ?? [],
+  );
+  const signedFileUrlById = await getSignedFileUrlById(filesForSlot);
 
   return (
     <PageBody>
@@ -122,7 +127,7 @@ export default async function SlotPartsPage({ params }: SlotPartsPageProps) {
                         <TableCell>
                           <Link
                             className="font-medium hover:underline"
-                            href={`/band/parts/${song.slug}/parts`}
+                            href={`/band/parts/${song.slug}`}
                           >
                             {song.title}
                           </Link>
@@ -150,14 +155,13 @@ export default async function SlotPartsPage({ params }: SlotPartsPageProps) {
                         <TableCell>
                           <div className="flex flex-wrap gap-2">
                             {files.map((file) => (
-                              <Badge key={file.id} variant="secondary">
-                                {file.kind === 'guide_audio' ? (
-                                  <FileAudio data-icon="inline-start" />
-                                ) : (
-                                  <FileText data-icon="inline-start" />
-                                )}
-                                {file.kind === 'guide_audio' ? 'MP3' : 'PDF'}
-                              </Badge>
+                              <PartFileBadge
+                                kind={file.kind}
+                                key={file.id}
+                                label={file.label ?? formatSlot(file.kind)}
+                                labelClassName="max-w-40"
+                                previewUrl={signedFileUrlById.get(file.id)}
+                              />
                             ))}
                             {files.length === 0 ? (
                               <span className="text-muted-foreground text-sm">
@@ -209,4 +213,24 @@ function formatSlot(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+async function getSignedFileUrlById<
+  FileRow extends { id: string; storage_path: string },
+>(files: FileRow[]) {
+  const client = getSupabaseServerClient();
+  const uniqueFiles = [
+    ...new Map(files.map((file) => [file.id, file])).values(),
+  ];
+  const entries = await Promise.all(
+    uniqueFiles.map(async (file) => {
+      const { data } = await client.storage
+        .from('band_assets')
+        .createSignedUrl(file.storage_path, 60 * 60);
+
+      return [file.id, data?.signedUrl ?? null] as const;
+    }),
+  );
+
+  return new Map(entries);
 }

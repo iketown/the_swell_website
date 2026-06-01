@@ -7,6 +7,7 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const ENABLE_REACT_COMPILER = process.env.ENABLE_REACT_COMPILER === 'true';
+const SERVER_ACTION_BODY_SIZE_LIMIT = '260mb';
 
 const INTERNAL_PACKAGES = [
   '@kit/ui',
@@ -57,6 +58,9 @@ const config = {
   reactCompiler: ENABLE_REACT_COMPILER,
   experimental: {
     mdxRs: true,
+    serverActions: {
+      bodySizeLimit: SERVER_ACTION_BODY_SIZE_LIMIT,
+    },
     turbopackFileSystemCacheForDev: true,
     optimizePackageImports: [
       'recharts',

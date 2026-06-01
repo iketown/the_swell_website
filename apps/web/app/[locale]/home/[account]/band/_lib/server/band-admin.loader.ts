@@ -13,6 +13,11 @@ type SongAlbumRow = Database['public']['Tables']['song_albums']['Row'];
 type TagRow = Database['public']['Tables']['tags']['Row'];
 type SongTagRow = Database['public']['Tables']['song_tags']['Row'];
 type PartRow = Database['public']['Tables']['parts']['Row'];
+type SongFileRow = Database['public']['Tables']['song_files']['Row'];
+type SongPartAssetRow =
+  Database['public']['Tables']['song_part_assets']['Row'];
+type SongPartAssignmentRow =
+  Database['public']['Tables']['song_part_assignments']['Row'];
 type PartFileRow = Database['public']['Tables']['part_files']['Row'];
 
 export type BandAdminData = Awaited<ReturnType<typeof loadBandAdminData>>;
@@ -30,6 +35,9 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
     tagsResult,
     songTagsResult,
     partsResult,
+    songFilesResult,
+    songPartAssetsResult,
+    songPartAssignmentsResult,
     filesResult,
   ] = await Promise.all([
     client
@@ -63,6 +71,21 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
     client.from('song_tags').select('*').eq('account_id', accountId),
     client
       .from('parts')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('order_index', { ascending: true }),
+    client
+      .from('song_files')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('order_index', { ascending: true }),
+    client
+      .from('song_part_assets')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('order_index', { ascending: true }),
+    client
+      .from('song_part_assignments')
       .select('*')
       .eq('account_id', accountId)
       .order('order_index', { ascending: true }),
@@ -101,6 +124,18 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
     throw partsResult.error;
   }
 
+  if (songFilesResult.error) {
+    throw songFilesResult.error;
+  }
+
+  if (songPartAssetsResult.error) {
+    throw songPartAssetsResult.error;
+  }
+
+  if (songPartAssignmentsResult.error) {
+    throw songPartAssignmentsResult.error;
+  }
+
   if (filesResult.error) {
     throw filesResult.error;
   }
@@ -112,6 +147,11 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
   const tags = tagsResult.data satisfies TagRow[];
   const songTags = songTagsResult.data satisfies SongTagRow[];
   const parts = partsResult.data satisfies PartRow[];
+  const songFiles = songFilesResult.data satisfies SongFileRow[];
+  const songPartAssets =
+    songPartAssetsResult.data satisfies SongPartAssetRow[];
+  const songPartAssignments =
+    songPartAssignmentsResult.data satisfies SongPartAssignmentRow[];
   const files = filesResult.data satisfies PartFileRow[];
 
   const memberById = new Map(members.map((member) => [member.id, member]));
@@ -123,6 +163,12 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
   const albumsBySongId = new Map<string, AlbumRow[]>();
   const songsByAlbumId = new Map<string, SongRow[]>();
   const tagsBySongId = new Map<string, TagRow[]>();
+  const songFilesBySongId = new Map<string, SongFileRow[]>();
+  const songPartAssetsBySongId = new Map<string, SongPartAssetRow[]>();
+  const songPartAssignmentsBySongId = new Map<
+    string,
+    SongPartAssignmentRow[]
+  >();
   const filesByPartId = new Map<string, PartFileRow[]>();
 
   for (const songAlbum of songAlbums) {
@@ -156,6 +202,24 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
     filesByPartId.set(file.part_id, [...existing, file]);
   }
 
+  for (const file of songFiles) {
+    const existing = songFilesBySongId.get(file.song_id) ?? [];
+    songFilesBySongId.set(file.song_id, [...existing, file]);
+  }
+
+  for (const asset of songPartAssets) {
+    const existing = songPartAssetsBySongId.get(asset.song_id) ?? [];
+    songPartAssetsBySongId.set(asset.song_id, [...existing, asset]);
+  }
+
+  for (const assignment of songPartAssignments) {
+    const existing = songPartAssignmentsBySongId.get(assignment.song_id) ?? [];
+    songPartAssignmentsBySongId.set(assignment.song_id, [
+      ...existing,
+      assignment,
+    ]);
+  }
+
   return {
     workspace,
     canManageBand: workspace.account.permissions.includes('members.manage'),
@@ -167,6 +231,9 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
     tags,
     songTags,
     parts,
+    songFiles,
+    songPartAssets,
+    songPartAssignments,
     files,
     memberById,
     songById,
@@ -177,6 +244,9 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
     albumsBySongId,
     songsByAlbumId,
     tagsBySongId,
+    songFilesBySongId,
+    songPartAssetsBySongId,
+    songPartAssignmentsBySongId,
     filesByPartId,
   };
 });

@@ -216,6 +216,69 @@ values (
   1024
 );
 
+insert into public.song_files (
+  id,
+  account_id,
+  song_id,
+  kind,
+  label,
+  storage_path,
+  mime_type,
+  size_bytes
+)
+values (
+  '12121212-1212-4121-8121-121212121212',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  'chart_pdf',
+  'Shared chart',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/songs/dddddddd-dddd-4ddd-8ddd-dddddddddddd/shared-chart.pdf',
+  'application/pdf',
+  2048
+);
+
+insert into public.song_part_assets (
+  id,
+  account_id,
+  song_id,
+  kind,
+  title,
+  description,
+  storage_path,
+  mime_type,
+  size_bytes,
+  default_area
+)
+values (
+  '34343434-3434-4343-8343-343434343434',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  'chart_pdf',
+  'Shared chart',
+  'Reference chart for the standard arrangement',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/songs/dddddddd-dddd-4ddd-8ddd-dddddddddddd/shared-chart.pdf',
+  'application/pdf',
+  2048,
+  null
+);
+
+insert into public.song_part_assignments (
+  id,
+  account_id,
+  song_id,
+  asset_id,
+  member_id,
+  area
+)
+values (
+  '45454545-4545-4454-8454-454545454545',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  '34343434-3434-4343-8343-343434343434',
+  'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  'instrumental'
+);
+
 select tests.rls_enabled('public', 'members');
 select tests.rls_enabled('public', 'member_private_financial');
 select tests.rls_enabled('public', 'songs');
@@ -224,6 +287,9 @@ select tests.rls_enabled('public', 'song_albums');
 select tests.rls_enabled('public', 'tags');
 select tests.rls_enabled('public', 'song_tags');
 select tests.rls_enabled('public', 'parts');
+select tests.rls_enabled('public', 'song_files');
+select tests.rls_enabled('public', 'song_part_assets');
+select tests.rls_enabled('public', 'song_part_assignments');
 select tests.rls_enabled('public', 'part_files');
 
 select makerkit.authenticate_as('swell_owner');
@@ -268,6 +334,48 @@ select lives_ok(
   $$ insert into public.tags (account_id, display, slug)
      values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Surf Songs', 'surf-songs') $$,
   'Owner can insert tags'
+);
+
+select lives_ok(
+  $$ insert into public.song_files (account_id, song_id, kind, label, storage_path, mime_type, size_bytes)
+     values (
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+       'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+       'guide_audio',
+       'Owner guide',
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/songs/dddddddd-dddd-4ddd-8ddd-dddddddddddd/owner-guide.mp3',
+       'audio/mpeg',
+       1024
+     ) $$,
+  'Owner can insert song-level files'
+);
+
+select lives_ok(
+  $$ insert into public.song_part_assets (account_id, song_id, kind, title, storage_path, mime_type, size_bytes, default_area)
+     values (
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+       'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+       'guide_audio',
+       'Owner guide asset',
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/songs/dddddddd-dddd-4ddd-8ddd-dddddddddddd/owner-guide-asset.mp3',
+       'audio/mpeg',
+       1024,
+       'vocal'
+     ) $$,
+  'Owner can insert song part assets'
+);
+
+select lives_ok(
+  $$ insert into public.song_part_assignments (account_id, song_id, asset_id, member_id, area)
+     select
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+       'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+       song_part_assets.id,
+       'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+       'vocal'::public.song_part_assignment_area
+     from public.song_part_assets
+     where song_part_assets.storage_path = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/songs/dddddddd-dddd-4ddd-8ddd-dddddddddddd/owner-guide-asset.mp3' $$,
+  'Owner can assign song part assets'
 );
 
 select lives_ok(
@@ -376,6 +484,21 @@ select isnt_empty(
   'Member can read files for assigned parts'
 );
 
+select isnt_empty(
+  $$ select * from public.song_files where song_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' $$,
+  'Member can read song-level files'
+);
+
+select isnt_empty(
+  $$ select * from public.song_part_assets where song_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' $$,
+  'Member can read song part assets'
+);
+
+select isnt_empty(
+  $$ select * from public.song_part_assignments where member_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' $$,
+  'Member can read song part assignments'
+);
+
 select throws_ok(
   $$ insert into public.songs (account_id, title, status)
      values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Member Inserted Song', 'candidate') $$,
@@ -395,6 +518,47 @@ select throws_ok(
      values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Member Tag', 'member-tag') $$,
   'new row violates row-level security policy for table "tags"',
   'Member cannot insert tags'
+);
+
+select throws_ok(
+  $$ insert into public.song_files (account_id, song_id, kind, label, storage_path, mime_type)
+     values (
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+       'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+       'chart_pdf',
+       'Member file',
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/songs/dddddddd-dddd-4ddd-8ddd-dddddddddddd/member-file.pdf',
+       'application/pdf'
+     ) $$,
+  'new row violates row-level security policy for table "song_files"',
+  'Member cannot insert song-level files'
+);
+
+select throws_ok(
+  $$ insert into public.song_part_assets (account_id, song_id, kind, title, storage_path, mime_type)
+     values (
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+       'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+       'chart_pdf',
+       'Member asset',
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/songs/dddddddd-dddd-4ddd-8ddd-dddddddddddd/member-asset.pdf',
+       'application/pdf'
+     ) $$,
+  'new row violates row-level security policy for table "song_part_assets"',
+  'Member cannot insert song part assets'
+);
+
+select throws_ok(
+  $$ insert into public.song_part_assignments (account_id, song_id, asset_id, member_id, area)
+     values (
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+       'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+       '34343434-3434-4343-8343-343434343434',
+       'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+       'vocal'
+     ) $$,
+  'new row violates row-level security policy for table "song_part_assignments"',
+  'Member cannot insert song part assignments'
 );
 
 select lives_ok(
@@ -463,6 +627,21 @@ select is_empty(
 select is_empty(
   $$ select * from public.members where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
   'Outsider cannot read members'
+);
+
+select is_empty(
+  $$ select * from public.song_files where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Outsider cannot read song-level files'
+);
+
+select is_empty(
+  $$ select * from public.song_part_assets where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Outsider cannot read song part assets'
+);
+
+select is_empty(
+  $$ select * from public.song_part_assignments where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Outsider cannot read song part assignments'
 );
 
 select throws_ok(

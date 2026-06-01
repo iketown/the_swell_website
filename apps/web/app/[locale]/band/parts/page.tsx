@@ -1,7 +1,5 @@
 import Link from 'next/link';
 
-import { FileAudio, FileText } from 'lucide-react';
-
 import { AppBreadcrumbs } from '@kit/ui/app-breadcrumbs';
 import { Badge } from '@kit/ui/badge';
 import {
@@ -38,15 +36,29 @@ export default async function BandPartsPage() {
   const workspace = await loadSwellWorkspace();
   const data = await loadBandAdminData(workspace.account.slug);
   const songsWithParts = data.songs
-    .map((song) => ({
-      song,
-      parts: data.parts.filter((part) => part.song_id === song.id),
-    }))
-    .filter(({ parts }) => parts.length > 0);
+    .map((song) => {
+      const memberIds = new Set(
+        (data.songPartAssignmentsBySongId.get(song.id) ?? []).map(
+          (assignment) => assignment.member_id,
+        ),
+      );
+      const members = [...memberIds]
+        .map((memberId) => data.memberById.get(memberId))
+        .filter((member): member is NonNullable<typeof member> =>
+          Boolean(member),
+        )
+        .sort((a, b) => a.display_name.localeCompare(b.display_name));
+
+      return {
+        members,
+        song,
+      };
+    })
+    .filter(({ members }) => members.length > 0);
 
   const searchSongs = data.songs.map((song) => ({
     artist: song.original_artist,
-    partCount: data.parts.filter((part) => part.song_id === song.id).length,
+    partCount: data.songPartAssetsBySongId.get(song.id)?.length ?? 0,
     slug: song.slug,
     title: song.title,
   }));
@@ -76,8 +88,7 @@ export default async function BandPartsPage() {
           <CardHeader>
             <CardTitle>Songs with parts</CardTitle>
             <CardDescription>
-              Current arrangements with one link per assigned vocal or
-              instrument part.
+              Current arrangements grouped by assigned member.
             </CardDescription>
           </CardHeader>
 
@@ -92,12 +103,12 @@ export default async function BandPartsPage() {
 
               <TableBody>
                 {songsWithParts.length > 0 ? (
-                  songsWithParts.map(({ parts, song }) => (
+                  songsWithParts.map(({ members, song }) => (
                     <TableRow key={song.id}>
                       <TableCell className="w-72 align-top">
                         <Link
                           className="font-medium hover:underline"
-                          href={`/band/parts/${song.slug}/parts`}
+                          href={`/band/parts/${song.slug}`}
                         >
                           {song.title}
                         </Link>
@@ -107,33 +118,19 @@ export default async function BandPartsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
-                          {parts.map((part) => {
-                            const files = data.filesByPartId.get(part.id) ?? [];
-
-                            return (
-                              <Link
-                                key={part.id}
-                                href={`/band/parts/${song.slug}/parts/${part.slot}`}
+                          {members.map((member) => (
+                            <Link
+                              key={member.id}
+                              href={`/band/parts/m/${memberSlug(member.display_name)}`}
+                            >
+                              <Badge
+                                className="hover:bg-secondary/80"
+                                variant="secondary"
                               >
-                                <Badge
-                                  className="hover:bg-secondary/80 gap-1.5"
-                                  variant="secondary"
-                                >
-                                  {compactPartLabel(part.slot)}
-                                  {files.some(
-                                    (file) => file.kind === 'guide_audio',
-                                  ) ? (
-                                    <FileAudio className="size-3" />
-                                  ) : null}
-                                  {files.some(
-                                    (file) => file.kind === 'chart_pdf',
-                                  ) ? (
-                                    <FileText className="size-3" />
-                                  ) : null}
-                                </Badge>
-                              </Link>
-                            );
-                          })}
+                                {member.display_name}
+                              </Badge>
+                            </Link>
+                          ))}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -158,10 +155,12 @@ export default async function BandPartsPage() {
   );
 }
 
-function compactPartLabel(slot: string) {
-  if (slot.startsWith('vocal_')) {
-    return slot.replace('vocal_', 'voc_');
-  }
-
-  return slot;
+function memberSlug(displayName: string) {
+  return displayName
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }

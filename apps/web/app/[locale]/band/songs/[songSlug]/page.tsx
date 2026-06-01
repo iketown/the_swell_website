@@ -198,13 +198,18 @@ export default async function SongDetailPage({ params }: SongDetailPageProps) {
                         <TableCell>
                           <div className="flex flex-wrap gap-2">
                             {files.map((file) => (
-                              <Badge key={file.id} variant="secondary">
+                              <Badge
+                                key={file.id}
+                                variant="secondary"
+                                className="max-w-64"
+                                title={`${file.label} (${file.kind === 'guide_audio' ? 'MP3' : 'PDF'})`}
+                              >
                                 {file.kind === 'guide_audio' ? (
                                   <FileAudio data-icon="inline-start" />
                                 ) : (
                                   <FileText data-icon="inline-start" />
                                 )}
-                                {file.kind === 'guide_audio' ? 'MP3' : 'PDF'}
+                                <span className="truncate">{file.label}</span>
                               </Badge>
                             ))}
                             {files.length === 0 ? (
