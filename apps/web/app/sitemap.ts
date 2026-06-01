@@ -37,6 +37,10 @@ function getPaths() {
 }
 
 async function getContentItems() {
+  if (!process.env.CMS_CLIENT) {
+    return [];
+  }
+
   const client = await createCmsClient();
 
   // do not paginate the content items

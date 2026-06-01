@@ -1,6 +1,10 @@
 import * as z from 'zod';
 
 const production = process.env.NODE_ENV === 'production';
+const vercelPreview = process.env.VERCEL_ENV === 'preview';
+const vercelPreviewUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : undefined;
 
 const AppConfigSchema = z
   .object({
@@ -56,14 +60,26 @@ const AppConfigSchema = z
   );
 
 const appConfig = AppConfigSchema.parse({
-  name: process.env.NEXT_PUBLIC_PRODUCT_NAME,
-  title: process.env.NEXT_PUBLIC_SITE_TITLE,
-  description: process.env.NEXT_PUBLIC_SITE_DESCRIPTION,
-  url: process.env.NEXT_PUBLIC_SITE_URL,
+  name:
+    process.env.NEXT_PUBLIC_PRODUCT_NAME ??
+    (vercelPreview ? 'The Swell' : undefined),
+  title:
+    process.env.NEXT_PUBLIC_SITE_TITLE ??
+    (vercelPreview ? 'The Swell' : undefined),
+  description:
+    process.env.NEXT_PUBLIC_SITE_DESCRIPTION ??
+    (vercelPreview ? 'The Swell band OS' : undefined),
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? vercelPreviewUrl,
   locale: process.env.NEXT_PUBLIC_DEFAULT_LOCALE,
-  theme: process.env.NEXT_PUBLIC_DEFAULT_THEME_MODE,
-  themeColor: process.env.NEXT_PUBLIC_THEME_COLOR,
-  themeColorDark: process.env.NEXT_PUBLIC_THEME_COLOR_DARK,
+  theme:
+    process.env.NEXT_PUBLIC_DEFAULT_THEME_MODE ??
+    (vercelPreview ? 'light' : undefined),
+  themeColor:
+    process.env.NEXT_PUBLIC_THEME_COLOR ??
+    (vercelPreview ? '#ffffff' : undefined),
+  themeColorDark:
+    process.env.NEXT_PUBLIC_THEME_COLOR_DARK ??
+    (vercelPreview ? '#0a0a0a' : undefined),
   production,
 });
 
