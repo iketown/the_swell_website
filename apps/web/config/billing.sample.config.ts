@@ -8,7 +8,8 @@ import { BillingProviderSchema, createBillingSchema } from '@kit/billing';
 // and should match the provider in the database. We also add it here so we can validate
 // your configuration against the selected provider at build time.
 const provider = BillingProviderSchema.parse(
-  process.env.NEXT_PUBLIC_BILLING_PROVIDER,
+  process.env.NEXT_PUBLIC_BILLING_PROVIDER ??
+    (process.env.VERCEL_ENV === 'preview' ? 'stripe' : undefined),
 );
 
 export default createBillingSchema({
