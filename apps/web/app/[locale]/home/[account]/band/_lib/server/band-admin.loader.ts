@@ -1,5 +1,4 @@
 import 'server-only';
-
 import { cache } from 'react';
 
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
@@ -9,6 +8,8 @@ import { Database } from '~/lib/database.types';
 
 type MemberRow = Database['public']['Tables']['members']['Row'];
 type SongRow = Database['public']['Tables']['songs']['Row'];
+type AlbumRow = Database['public']['Tables']['albums']['Row'];
+type SongAlbumRow = Database['public']['Tables']['song_albums']['Row'];
 type TagRow = Database['public']['Tables']['tags']['Row'];
 type SongTagRow = Database['public']['Tables']['song_tags']['Row'];
 type PartRow = Database['public']['Tables']['parts']['Row'];
@@ -24,41 +25,53 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
   const [
     membersResult,
     songsResult,
+    albumsResult,
+    songAlbumsResult,
     tagsResult,
     songTagsResult,
     partsResult,
     filesResult,
-  ] =
-    await Promise.all([
-      client
-        .from('members')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('status', { ascending: true })
-        .order('display_name', { ascending: true }),
-      client
-        .from('songs')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('status', { ascending: true })
-        .order('title', { ascending: true }),
-      client
-        .from('tags')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('display', { ascending: true }),
-      client.from('song_tags').select('*').eq('account_id', accountId),
-      client
-        .from('parts')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('order_index', { ascending: true }),
-      client
-        .from('part_files')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('order_index', { ascending: true }),
-    ]);
+  ] = await Promise.all([
+    client
+      .from('members')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('status', { ascending: true })
+      .order('display_name', { ascending: true }),
+    client
+      .from('songs')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('status', { ascending: true })
+      .order('title', { ascending: true }),
+    client
+      .from('albums')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('released_on', { ascending: true })
+      .order('title', { ascending: true }),
+    client
+      .from('song_albums')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('order_index', { ascending: true }),
+    client
+      .from('tags')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('display', { ascending: true }),
+    client.from('song_tags').select('*').eq('account_id', accountId),
+    client
+      .from('parts')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('order_index', { ascending: true }),
+    client
+      .from('part_files')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('order_index', { ascending: true }),
+  ]);
 
   if (membersResult.error) {
     throw membersResult.error;
@@ -66,6 +79,14 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
 
   if (songsResult.error) {
     throw songsResult.error;
+  }
+
+  if (albumsResult.error) {
+    throw albumsResult.error;
+  }
+
+  if (songAlbumsResult.error) {
+    throw songAlbumsResult.error;
   }
 
   if (tagsResult.error) {
@@ -86,6 +107,8 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
 
   const members = membersResult.data satisfies MemberRow[];
   const songs = songsResult.data satisfies SongRow[];
+  const albums = albumsResult.data satisfies AlbumRow[];
+  const songAlbums = songAlbumsResult.data satisfies SongAlbumRow[];
   const tags = tagsResult.data satisfies TagRow[];
   const songTags = songTagsResult.data satisfies SongTagRow[];
   const parts = partsResult.data satisfies PartRow[];
@@ -93,9 +116,29 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
 
   const memberById = new Map(members.map((member) => [member.id, member]));
   const songById = new Map(songs.map((song) => [song.id, song]));
+  const songBySlug = new Map(songs.map((song) => [song.slug, song]));
+  const albumById = new Map(albums.map((album) => [album.id, album]));
+  const albumBySlug = new Map(albums.map((album) => [album.slug, album]));
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
+  const albumsBySongId = new Map<string, AlbumRow[]>();
+  const songsByAlbumId = new Map<string, SongRow[]>();
   const tagsBySongId = new Map<string, TagRow[]>();
   const filesByPartId = new Map<string, PartFileRow[]>();
+
+  for (const songAlbum of songAlbums) {
+    const song = songById.get(songAlbum.song_id);
+    const album = albumById.get(songAlbum.album_id);
+
+    if (!song || !album) {
+      continue;
+    }
+
+    const existingAlbums = albumsBySongId.get(song.id) ?? [];
+    albumsBySongId.set(song.id, [...existingAlbums, album]);
+
+    const existingSongs = songsByAlbumId.get(album.id) ?? [];
+    songsByAlbumId.set(album.id, [...existingSongs, song]);
+  }
 
   for (const songTag of songTags) {
     const tag = tagById.get(songTag.tag_id);
@@ -119,13 +162,20 @@ export const loadBandAdminData = cache(async (accountSlug: string) => {
     canManageTags: workspace.account.permissions.includes('tags.manage'),
     members,
     songs,
+    albums,
+    songAlbums,
     tags,
     songTags,
     parts,
     files,
     memberById,
     songById,
+    songBySlug,
+    albumById,
+    albumBySlug,
     tagById,
+    albumsBySongId,
+    songsByAlbumId,
     tagsBySongId,
     filesByPartId,
   };

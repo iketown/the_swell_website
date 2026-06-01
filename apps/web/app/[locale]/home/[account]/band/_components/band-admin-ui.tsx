@@ -5,6 +5,7 @@ import {
   ArrowUp,
   FileAudio,
   FileText,
+  LibraryBig,
   Music,
   Pencil,
   PlusCircle,
@@ -41,9 +42,9 @@ import {
   TableHeader,
   TableRow,
 } from '@kit/ui/table';
+import { Textarea } from '@kit/ui/textarea';
 import { cn } from '@kit/ui/utils';
 
-import { BandAdminData } from '../_lib/server/band-admin.loader';
 import {
   createBandMemberAction,
   createPartAction,
@@ -56,6 +57,7 @@ import {
   updateTagAction,
   updateSongTagsAction,
 } from '../_lib/server/band-admin.actions';
+import { BandAdminData } from '../_lib/server/band-admin.loader';
 
 type BandData = BandAdminData;
 
@@ -77,7 +79,7 @@ const vocalSlots = [
 
 const songStatuses = ['active', 'learning', 'candidate', 'retired'] as const;
 const memberStatuses = ['candidate', 'active', 'inactive', 'alumni'] as const;
-const songSortKeys = ['title', 'status', 'key', 'bpm'] as const;
+const songSortKeys = ['title', 'popularity', 'status', 'key', 'bpm'] as const;
 const sortDirections = ['asc', 'desc'] as const;
 const tagColorOptions = [
   {
@@ -123,21 +125,20 @@ type SortDirection = (typeof sortDirections)[number];
 
 export function BandOverview({ data }: { data: BandData }) {
   const assignedParts = data.parts.filter((part) => part.default_member_id);
-  const unassignedParts = data.parts.length - assignedParts.length;
   const guideFiles = data.files.filter((file) => file.kind === 'guide_audio');
   const chartFiles = data.files.filter((file) => file.kind === 'chart_pdf');
-  const basePath = `/home/${data.workspace.account.slug}/band`;
+  const basePath = '/band';
 
   return (
     <div className="flex w-full max-w-6xl flex-col gap-6 pb-32">
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard label="Members" value={data.members.length} />
         <MetricCard label="Songs" value={data.songs.length} />
+        <MetricCard label="Records" value={data.albums.length} />
         <MetricCard label="Parts" value={data.parts.length} />
-        <MetricCard label="Open parts" value={unassignedParts} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-4">
         <BandQuickLink
           href={`${basePath}/members`}
           icon={<Users />}
@@ -152,6 +153,14 @@ export function BandOverview({ data }: { data: BandData }) {
           title="Songs"
           description="Build the working set list and rehearsal backlog."
           action="Manage songs"
+        />
+
+        <BandQuickLink
+          href="/band/albums"
+          icon={<LibraryBig />}
+          title="Records"
+          description="Original album references, cover art, and song links."
+          action="Browse records"
         />
 
         <BandQuickLink
@@ -230,17 +239,19 @@ export function MembersAdmin({ data }: { data: BandData }) {
 
 export function SongsAdmin({
   data,
+  basePath,
   selectedTagSlug,
   sortDirection,
   sortKey,
 }: {
   data: BandData;
+  basePath?: string;
   selectedTagSlug?: string | null;
   sortDirection?: string | null;
   sortKey?: string | null;
 }) {
   const accountSlug = data.workspace.account.slug;
-  const basePath = `/home/${accountSlug}/band/songs`;
+  const songListPath = basePath ?? `/home/${accountSlug}/band/songs`;
   const activeSortKey = parseSongSortKey(sortKey);
   const activeSortDirection = parseSortDirection(sortDirection);
   const selectedTag = selectedTagSlug
@@ -255,7 +266,7 @@ export function SongsAdmin({
     : data.songs;
   const songs = sortSongs(filteredSongs, activeSortKey, activeSortDirection);
   const createTagFilterPath = (tagSlug?: string | null) =>
-    createSongListPath(basePath, {
+    createSongListPath(songListPath, {
       direction: activeSortDirection,
       sort: activeSortKey,
       tag: tagSlug ?? null,
@@ -288,7 +299,7 @@ export function SongsAdmin({
                 key={tag.id}
                 href={createTagFilterPath(tag.slug)}
                 className={cn(
-                  'focus-visible:border-ring focus-visible:ring-ring/50 rounded-4xl outline-none transition focus-visible:ring-3',
+                  'focus-visible:border-ring focus-visible:ring-ring/50 rounded-4xl transition outline-none focus-visible:ring-3',
                   selectedTag?.id === tag.id && 'ring-ring/30 ring-2',
                 )}
               >
@@ -301,7 +312,7 @@ export function SongsAdmin({
             <TableHeader>
               <TableRow>
                 <SortableSongHeader
-                  basePath={basePath}
+                  basePath={songListPath}
                   currentDirection={activeSortDirection}
                   currentSort={activeSortKey}
                   label="Title"
@@ -309,7 +320,7 @@ export function SongsAdmin({
                   sort="title"
                 />
                 <SortableSongHeader
-                  basePath={basePath}
+                  basePath={songListPath}
                   currentDirection={activeSortDirection}
                   currentSort={activeSortKey}
                   label="Status"
@@ -317,7 +328,15 @@ export function SongsAdmin({
                   sort="status"
                 />
                 <SortableSongHeader
-                  basePath={basePath}
+                  basePath={songListPath}
+                  currentDirection={activeSortDirection}
+                  currentSort={activeSortKey}
+                  label="Popularity"
+                  selectedTagSlug={selectedTag?.slug ?? null}
+                  sort="popularity"
+                />
+                <SortableSongHeader
+                  basePath={songListPath}
                   currentDirection={activeSortDirection}
                   currentSort={activeSortKey}
                   label="Key"
@@ -325,7 +344,7 @@ export function SongsAdmin({
                   sort="key"
                 />
                 <SortableSongHeader
-                  basePath={basePath}
+                  basePath={songListPath}
                   currentDirection={activeSortDirection}
                   currentSort={activeSortKey}
                   label="BPM"
@@ -345,7 +364,12 @@ export function SongsAdmin({
                   <TableRow key={song.id}>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{song.title}</span>
+                        <Link
+                          href={`/band/songs/${song.slug}`}
+                          className="font-medium hover:underline"
+                        >
+                          {song.title}
+                        </Link>
                         <span className="text-muted-foreground text-xs">
                           {song.original_artist ?? 'The Beach Boys'}
                         </span>
@@ -353,6 +377,13 @@ export function SongsAdmin({
                     </TableCell>
                     <TableCell>
                       <StatusBadge value={song.status} />
+                    </TableCell>
+                    <TableCell>
+                      {song.popularity_rank ? (
+                        `#${song.popularity_rank}`
+                      ) : (
+                        <span className="text-muted-foreground">Unset</span>
+                      )}
                     </TableCell>
                     <TableCell>{song.song_key ?? 'Unset'}</TableCell>
                     <TableCell>{song.bpm ?? 'Unset'}</TableCell>
@@ -375,9 +406,9 @@ export function SongsAdmin({
                             accountSlug={accountSlug}
                             songId={song.id}
                             tags={data.tags}
-                            selectedTagIds={new Set(
-                              songTags.map((tag) => tag.id),
-                            )}
+                            selectedTagIds={
+                              new Set(songTags.map((tag) => tag.id))
+                            }
                           />
                         ) : null}
                       </div>
@@ -671,7 +702,7 @@ function SortableSongHeader({
       <Link
         href={href}
         className={cn(
-          'hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 inline-flex items-center gap-1.5 rounded-md py-1 outline-none transition focus-visible:ring-3',
+          'hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 inline-flex items-center gap-1.5 rounded-md py-1 transition outline-none focus-visible:ring-3',
           isActive && 'text-foreground',
         )}
       >
@@ -736,6 +767,14 @@ function sortSongs(
 
     if (sort === 'status') {
       return compareStrings(first.status, second.status) * multiplier;
+    }
+
+    if (sort === 'popularity') {
+      return compareNullableNumbers(
+        first.popularity_rank,
+        second.popularity_rank,
+        multiplier,
+      );
     }
 
     if (sort === 'key') {
@@ -925,7 +964,7 @@ function TagAssignmentForm({
 
   return (
     <details className="group">
-      <summary className="text-primary cursor-pointer text-xs font-medium marker:text-muted-foreground">
+      <summary className="text-primary marker:text-muted-foreground cursor-pointer text-xs font-medium">
         Edit tags
       </summary>
 
@@ -971,7 +1010,7 @@ function CreatePartForm({ data }: { data: BandData }) {
       <CardHeader>
         <CardTitle>Add part</CardTitle>
         <CardDescription>
-          Each new part gets MP3 and PDF placeholders for the upload flow.
+          Create the assignment lane first, then upload its MP3 or PDF files.
         </CardDescription>
       </CardHeader>
 
@@ -994,6 +1033,7 @@ function CreatePartForm({ data }: { data: BandData }) {
           <NativeSelect name="type" defaultValue="vocal">
             <option value="vocal">Vocal</option>
             <option value="instrumental">Instrumental</option>
+            <option value="other">Other</option>
           </NativeSelect>
 
           <NativeSelect name="slot" defaultValue="vocal_1">
@@ -1011,6 +1051,9 @@ function CreatePartForm({ data }: { data: BandData }) {
                 </option>
               ))}
             </optgroup>
+            <optgroup label="Other">
+              <option value="other">Other</option>
+            </optgroup>
           </NativeSelect>
 
           <NativeSelect name="default_member_id" defaultValue="">
@@ -1023,6 +1066,11 @@ function CreatePartForm({ data }: { data: BandData }) {
           </NativeSelect>
 
           <Input name="label" placeholder="Part label" />
+          <Textarea
+            name="description"
+            placeholder="Description or learning notes"
+            rows={3}
+          />
           <Input name="order_index" type="number" placeholder="Order" />
 
           <label className="border-input bg-background flex items-center gap-2 rounded-lg border px-2.5 py-2 text-sm">
@@ -1133,7 +1181,7 @@ function NativeSelect(props: React.ComponentProps<'select'>) {
   return (
     <select
       {...props}
-      className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border px-2.5 text-sm outline-none transition-colors focus-visible:ring-3"
+      className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border px-2.5 text-sm transition-colors outline-none focus-visible:ring-3"
     />
   );
 }

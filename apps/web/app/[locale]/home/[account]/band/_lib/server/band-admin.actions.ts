@@ -13,6 +13,7 @@ type InstrumentSlot = Database['public']['Enums']['instrument_slot'];
 type VocalSlot = Database['public']['Enums']['vocal_slot'];
 type PartSlot = Database['public']['Enums']['part_slot'];
 type PartType = Database['public']['Enums']['part_type'];
+type PartFileKind = Database['public']['Enums']['part_file_kind'];
 
 const emptyToNull = (value: unknown) =>
   typeof value === 'string' && value.trim() === '' ? null : value;
@@ -96,7 +97,7 @@ const UpdateSongTagsSchema = AccountSlugSchema.extend({
 
 const CreatePartSchema = AccountSlugSchema.extend({
   song_id: z.string().uuid(),
-  type: z.enum(['vocal', 'instrumental']),
+  type: z.enum(['vocal', 'instrumental', 'other']),
   slot: z.enum([
     'vocal_1',
     'vocal_2',
@@ -108,11 +109,19 @@ const CreatePartSchema = AccountSlugSchema.extend({
     'keys',
     'bass',
     'drums',
+    'other',
   ]),
   default_member_id: z.preprocess(emptyToNull, z.string().uuid().nullable()),
   label: optionalString,
+  description: optionalString,
   is_lead: z.preprocess((value) => value === 'on', z.boolean()),
   order_index: optionalInt,
+});
+
+const UploadPartFileSchema = AccountSlugSchema.extend({
+  partId: z.string().uuid(),
+  kind: z.enum(['guide_audio', 'chart_pdf']),
+  label: optionalString,
 });
 
 const DeleteRecordSchema = AccountSlugSchema.extend({
@@ -222,56 +231,119 @@ export async function createPartAction(formData: FormData) {
 
   validatePartSlot(data.type, data.slot);
 
-  const { data: part, error } = await client
-    .from('parts')
-    .insert({
-      account_id: accountId,
-      song_id: data.song_id,
-      type: data.type as PartType,
-      slot: data.slot as PartSlot,
-      default_member_id: data.default_member_id,
-      label: data.label,
-      is_lead: data.is_lead,
-      order_index: data.order_index ?? 0,
-    })
-    .select('id')
-    .single();
+  const { error } = await client.from('parts').insert({
+    account_id: accountId,
+    song_id: data.song_id,
+    type: data.type as PartType,
+    slot: data.slot as PartSlot,
+    default_member_id: data.default_member_id,
+    label: data.label,
+    description: data.description,
+    is_lead: data.is_lead,
+    order_index: data.order_index ?? 0,
+  });
 
   if (error) {
     throw error;
   }
 
-  const label = data.label ?? data.slot.replace('_', ' ');
-  const storageBase = `${accountId}/parts/${part.id}`;
+  revalidateBand(accountSlug);
+}
 
-  const { error: filesError } = await client.from('part_files').insert([
-    {
-      account_id: accountId,
-      part_id: part.id,
-      kind: 'guide_audio',
-      label: `${label} guide`,
-      storage_path: `${storageBase}/guide.mp3`,
-      mime_type: 'audio/mpeg',
-      size_bytes: 1,
-      order_index: 0,
-    },
-    {
-      account_id: accountId,
-      part_id: part.id,
-      kind: 'chart_pdf',
-      label: `${label} chart`,
-      storage_path: `${storageBase}/chart.pdf`,
-      mime_type: 'application/pdf',
-      size_bytes: 1,
-      order_index: 1,
-    },
-  ]);
+export async function uploadPartFileAction(formData: FormData) {
+  const data = UploadPartFileSchema.parse({
+    accountSlug: formData.get('accountSlug'),
+    partId: formData.get('partId'),
+    kind: formData.get('kind'),
+    label: formData.get('label'),
+  });
+  const uploadedFile = formData.get('file');
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
 
-  if (filesError) {
-    throw filesError;
+  if (!(uploadedFile instanceof File) || uploadedFile.size === 0) {
+    throw new Error('Choose an MP3 or PDF file to upload.');
+  }
+
+  const { data: part, error: partError } = await client
+    .from('parts')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', data.partId)
+    .single();
+
+  if (partError) {
+    throw partError;
+  }
+
+  const fileMetadata = getPartFileMetadata(uploadedFile, data.kind);
+  const storagePath = [
+    accountId,
+    'parts',
+    part.id,
+    `${data.kind}-${Date.now()}.${fileMetadata.extension}`,
+  ].join('/');
+
+  const { error: uploadError } = await client.storage
+    .from('band_assets')
+    .upload(storagePath, uploadedFile, {
+      contentType: fileMetadata.mimeType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data: existingFile, error: existingError } = await client
+    .from('part_files')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('part_id', part.id)
+    .eq('kind', data.kind)
+    .order('order_index', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  const fileRow = {
+    account_id: accountId,
+    part_id: part.id,
+    kind: data.kind as PartFileKind,
+    label: data.label ?? fileMetadata.defaultLabel,
+    storage_path: storagePath,
+    mime_type: fileMetadata.mimeType,
+    size_bytes: uploadedFile.size,
+    order_index: data.kind === 'guide_audio' ? 0 : 1,
+  };
+
+  if (existingFile) {
+    const { error: updateError } = await client
+      .from('part_files')
+      .update(fileRow)
+      .eq('account_id', accountId)
+      .eq('id', existingFile.id);
+
+    if (updateError) {
+      throw updateError;
+    }
+  } else {
+    const { error: insertError } = await client
+      .from('part_files')
+      .insert(fileRow);
+
+    if (insertError) {
+      throw insertError;
+    }
   }
 
   revalidateBand(accountSlug);
+  revalidatePath(`/band/parts/${part.song_id}/parts`);
 }
 
 export async function deleteBandMemberAction(formData: FormData) {
@@ -467,13 +539,20 @@ async function assertCanManageTags(accountSlug: string) {
 
 function validatePartSlot(type: PartType, slot: PartSlot) {
   const vocal = slot.startsWith('vocal_');
+  const instrument = ['bass', 'drums', 'keys', 'lead_gtr', 'rhy_gtr'].includes(
+    slot,
+  );
 
   if (type === 'vocal' && !vocal) {
     throw new Error('Vocal parts must use a vocal slot.');
   }
 
-  if (type === 'instrumental' && vocal) {
+  if (type === 'instrumental' && !instrument) {
     throw new Error('Instrumental parts must use an instrument slot.');
+  }
+
+  if (type === 'other' && slot !== 'other') {
+    throw new Error('Other parts must use the other slot.');
   }
 }
 
@@ -482,6 +561,11 @@ function revalidateBand(accountSlug: string) {
   revalidatePath(`/home/${accountSlug}/band/members`);
   revalidatePath(`/home/${accountSlug}/band/songs`);
   revalidatePath(`/home/${accountSlug}/band/parts`);
+  revalidatePath('/band');
+  revalidatePath('/band/members');
+  revalidatePath('/band/songs');
+  revalidatePath('/band/albums');
+  revalidatePath('/band/parts');
 }
 
 function slugifyTag(display: string) {
@@ -491,5 +575,39 @@ function slugifyTag(display: string) {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, ''),
+  );
+}
+
+function getPartFileMetadata(file: File, kind: PartFileKind) {
+  const fileName = file.name.toLowerCase();
+
+  if (
+    kind === 'guide_audio' &&
+    (file.type === 'audio/mpeg' ||
+      file.type === 'audio/mp3' ||
+      fileName.endsWith('.mp3'))
+  ) {
+    return {
+      defaultLabel: 'MP3 guide',
+      extension: 'mp3',
+      mimeType: 'audio/mpeg',
+    };
+  }
+
+  if (
+    kind === 'chart_pdf' &&
+    (file.type === 'application/pdf' || fileName.endsWith('.pdf'))
+  ) {
+    return {
+      defaultLabel: 'PDF chart',
+      extension: 'pdf',
+      mimeType: 'application/pdf',
+    };
+  }
+
+  throw new Error(
+    kind === 'guide_audio'
+      ? 'Guide audio must be an MP3 file.'
+      : 'Charts must be PDF files.',
   );
 }

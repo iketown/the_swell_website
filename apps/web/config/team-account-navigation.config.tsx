@@ -1,6 +1,7 @@
 import {
   CreditCard,
   FileAudio,
+  LibraryBig,
   Music,
   Settings,
   ShieldCheck,
@@ -40,9 +41,9 @@ const getRoutes = (account: string, permissions?: string[]) => {
       children: [
         {
           label: 'Band Home',
-          path: pathsConfig.app.accountHome.replace('[account]', account),
+          path: '/band',
           Icon: <Music className={iconClasses} />,
-          highlightMatch: `${createPath(pathsConfig.app.accountHome, account)}$`,
+          highlightMatch: '/band$',
         },
       ],
     },
@@ -52,21 +53,28 @@ const getRoutes = (account: string, permissions?: string[]) => {
         canAny(['band.members.read', 'band.members.manage'])
           ? {
               label: 'Band Members',
-              path: createPath('/home/[account]/band/members', account),
+              path: '/band/members',
               Icon: <Users className={iconClasses} />,
             }
           : undefined,
         canAny(['songs.read', 'songs.manage'])
           ? {
               label: 'Songs',
-              path: createPath('/home/[account]/band/songs', account),
+              path: '/band/songs',
               Icon: <Music className={iconClasses} />,
+            }
+          : undefined,
+        canAny(['songs.read', 'songs.manage'])
+          ? {
+              label: 'Records',
+              path: '/band/albums',
+              Icon: <LibraryBig className={iconClasses} />,
             }
           : undefined,
         canAny(['parts.read', 'parts.manage'])
           ? {
               label: 'Parts',
-              path: createPath('/home/[account]/band/parts', account),
+              path: '/band/parts',
               Icon: <FileAudio className={iconClasses} />,
             }
           : undefined,

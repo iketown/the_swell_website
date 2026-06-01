@@ -531,55 +531,18 @@ SET
     "order_index" = excluded."order_index",
     "notes" = excluded."notes";
 
-INSERT INTO "public"."part_files" (
-    "account_id",
-    "part_id",
-    "kind",
-    "label",
-    "storage_path",
-    "mime_type",
-    "size_bytes",
-    "order_index"
-)
-SELECT
-    part_row."account_id",
-    part_row."id",
-    'guide_audio'::public.part_file_kind,
-    coalesce(part_row."label", part_row."slot"::text) || ' guide',
-    part_row."account_id"::text || '/parts/' || part_row."id"::text || '/guide.mp3',
-    'audio/mpeg',
-    2048000,
-    0
-FROM
-    "public"."parts" part_row
-WHERE
-    part_row."account_id" = '914c4883-7fe2-4d99-91a7-8b5c6a07f54d'
-ON CONFLICT ("account_id", "storage_path") DO NOTHING;
+SELECT kit.seed_beach_boys_reference('914c4883-7fe2-4d99-91a7-8b5c6a07f54d'::uuid);
 
-INSERT INTO "public"."part_files" (
-    "account_id",
-    "part_id",
-    "kind",
-    "label",
-    "storage_path",
-    "mime_type",
-    "size_bytes",
-    "order_index"
-)
-SELECT
-    part_row."account_id",
-    part_row."id",
-    'chart_pdf'::public.part_file_kind,
-    coalesce(part_row."label", part_row."slot"::text) || ' chart',
-    part_row."account_id"::text || '/parts/' || part_row."id"::text || '/chart.pdf',
-    'application/pdf',
-    512000,
-    1
-FROM
-    "public"."parts" part_row
+UPDATE "public"."songs"
+SET
+    "popularity_rank" = nullif(
+        regexp_replace("notes", '^.*rank #([0-9]+).*$', '\1'),
+        "notes"
+    )::integer
 WHERE
-    part_row."account_id" = '914c4883-7fe2-4d99-91a7-8b5c6a07f54d'
-ON CONFLICT ("account_id", "storage_path") DO NOTHING;
+    "account_id" = '914c4883-7fe2-4d99-91a7-8b5c6a07f54d'
+    AND "popularity_rank" IS NULL
+    AND "notes" ~ 'rank #[0-9]+';
 
 
 --

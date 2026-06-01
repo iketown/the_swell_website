@@ -35,7 +35,8 @@ create type public.vocal_slot as enum(
 
 create type public.part_type as enum(
   'vocal',
-  'instrumental'
+  'instrumental',
+  'other'
 );
 
 create type public.part_slot as enum(
@@ -48,7 +49,8 @@ create type public.part_slot as enum(
   'lead_gtr',
   'keys',
   'bass',
-  'drums'
+  'drums',
+  'other'
 );
 
 create type public.song_status as enum(
@@ -62,6 +64,23 @@ create type public.part_file_kind as enum(
   'guide_audio',
   'chart_pdf'
 );
+
+create
+or replace function kit.swell_slugify (value text) returns text
+set
+  search_path = '' as $$
+  select nullif(
+    regexp_replace(
+      regexp_replace(replace(lower(trim(value)), '''', ''), '[^a-z0-9]+', '-', 'g'),
+      '(^-|-$)',
+      '',
+      'g'
+    ),
+    ''
+  );
+$$ language sql immutable;
+
+grant execute on function kit.swell_slugify (text) to authenticated, service_role;
 
 create table if not exists
   public.members (
@@ -136,6 +155,7 @@ create table if not exists
   public.songs (
     id uuid not null default extensions.uuid_generate_v4(),
     account_id uuid not null references public.accounts (id) on delete cascade,
+    slug varchar(255) not null default '' check (slug = lower(slug)) check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
     title varchar(255) not null check (length(trim(title)) > 0),
     original_artist varchar(255) default 'The Beach Boys',
     year_recorded integer check (
@@ -146,6 +166,10 @@ create table if not exists
     bpm integer check (
       bpm is null
       or bpm between 1 and 400
+    ),
+    popularity_rank integer check (
+      popularity_rank is null
+      or popularity_rank > 0
     ),
     status public.song_status not null default 'learning',
     duration_sec integer check (
@@ -158,10 +182,56 @@ create table if not exists
     created_by uuid references auth.users,
     updated_by uuid references auth.users,
     primary key (id),
-    unique (account_id, id)
+    unique (account_id, id),
+    unique (account_id, slug)
   );
 
 comment on table public.songs is 'The Swell song repertoire';
+comment on column public.songs.slug is 'Stable URL slug used by /band/songs/[song-slug]';
+comment on column public.songs.popularity_rank is 'Lower number means more popular in the reference import source';
+
+create table if not exists
+  public.albums (
+    id uuid not null default extensions.uuid_generate_v4(),
+    account_id uuid not null references public.accounts (id) on delete cascade,
+    slug varchar(255) not null check (slug = lower(slug)) check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+    title varchar(255) not null check (length(trim(title)) > 0),
+    original_artist varchar(255) not null default 'The Beach Boys',
+    released_on date,
+    release_year integer generated always as (extract(year from released_on)::integer) stored,
+    album_type varchar(50) not null default 'studio',
+    studio boolean not null default true,
+    cover_art_url varchar(1000),
+    reference_url varchar(1000),
+    notes varchar(5000),
+    created_at timestamptz not null default current_timestamp,
+    updated_at timestamptz not null default current_timestamp,
+    created_by uuid references auth.users,
+    updated_by uuid references auth.users,
+    primary key (id),
+    unique (account_id, id),
+    unique (account_id, slug)
+  );
+
+comment on table public.albums is 'Canonical record/album reference pages for The Swell repertoire';
+comment on column public.albums.slug is 'Stable URL slug used by /band/albums/[album-slug]';
+comment on column public.albums.cover_art_url is 'External or storage URL for album artwork reference';
+
+create table if not exists
+  public.song_albums (
+    account_id uuid not null references public.accounts (id) on delete cascade,
+    song_id uuid not null,
+    album_id uuid not null,
+    order_index integer not null default 0 check (order_index >= 0),
+    created_at timestamptz not null default current_timestamp,
+    created_by uuid references auth.users,
+    updated_by uuid references auth.users,
+    primary key (account_id, song_id, album_id),
+    foreign key (account_id, song_id) references public.songs (account_id, id) on delete cascade,
+    foreign key (account_id, album_id) references public.albums (account_id, id) on delete cascade
+  );
+
+comment on table public.song_albums is 'Many-to-many relationship between songs and records/albums';
 
 create table if not exists
   public.tags (
@@ -215,6 +285,7 @@ create table if not exists
     label varchar(255),
     is_lead boolean not null default false,
     default_member_id uuid,
+    description varchar(5000),
     order_index integer not null default 0 check (order_index >= 0),
     notes varchar(5000),
     created_at timestamptz not null default current_timestamp,
@@ -246,10 +317,15 @@ create table if not exists
           'drums'
         )
       )
+      or (
+        type = 'other'
+        and slot = 'other'
+      )
     )
   );
 
 comment on table public.parts is 'Per-song vocal and instrumental parts, including default performer assignment';
+comment on column public.parts.description is 'Member-facing notes for learning or performing this part';
 
 create table if not exists
   public.part_files (
@@ -291,6 +367,8 @@ comment on table public.part_files is 'Guide MP3s and PDF charts attached to a p
 revoke all on public.members from anon, authenticated, service_role;
 revoke all on public.member_private_financial from anon, authenticated, service_role;
 revoke all on public.songs from anon, authenticated, service_role;
+revoke all on public.albums from anon, authenticated, service_role;
+revoke all on public.song_albums from anon, authenticated, service_role;
 revoke all on public.tags from anon, authenticated, service_role;
 revoke all on public.song_tags from anon, authenticated, service_role;
 revoke all on public.parts from anon, authenticated, service_role;
@@ -299,6 +377,8 @@ revoke all on public.part_files from anon, authenticated, service_role;
 grant select, insert, update, delete on table public.members to authenticated, service_role;
 grant select, insert, update, delete on table public.member_private_financial to authenticated, service_role;
 grant select, insert, update, delete on table public.songs to authenticated, service_role;
+grant select, insert, update, delete on table public.albums to authenticated, service_role;
+grant select, insert, delete on table public.song_albums to authenticated, service_role;
 grant select, insert, update, delete on table public.tags to authenticated, service_role;
 grant select, insert, delete on table public.song_tags to authenticated, service_role;
 grant select, insert, update, delete on table public.parts to authenticated, service_role;
@@ -311,6 +391,11 @@ create index ix_members_instrument_capabilities on public.members using gin (ins
 create index ix_members_vocal_capabilities on public.members using gin (vocal_capabilities);
 
 create index ix_songs_account_status_title on public.songs (account_id, status, title);
+create index ix_songs_account_slug on public.songs (account_id, slug);
+create index ix_songs_account_popularity_rank on public.songs (account_id, popularity_rank);
+create index ix_albums_account_title on public.albums (account_id, title);
+create index ix_song_albums_album_song on public.song_albums (account_id, album_id, song_id);
+create index ix_song_albums_song_album on public.song_albums (account_id, song_id, album_id);
 create index ix_tags_account_display on public.tags (account_id, display);
 create index ix_song_tags_tag_song on public.song_tags (account_id, tag_id, song_id);
 create index ix_song_tags_song_tag on public.song_tags (account_id, song_id, tag_id);
@@ -348,6 +433,41 @@ for each row execute function public.trigger_set_timestamps();
 
 create trigger songs_set_user_tracking
 before insert or update on public.songs
+for each row execute function public.trigger_set_user_tracking();
+
+create
+or replace function kit.set_song_slug () returns trigger
+set
+  search_path = '' as $$
+begin
+  if new.slug is null or length(trim(new.slug)) = 0 then
+    new.slug := coalesce(kit.swell_slugify(new.title), left(new.id::text, 8));
+  else
+    new.slug := kit.swell_slugify(new.slug);
+  end if;
+
+  if new.slug is null then
+    raise exception 'Song slug cannot be empty';
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger songs_set_slug
+before insert or update of title, slug on public.songs
+for each row execute function kit.set_song_slug ();
+
+create trigger albums_set_timestamps
+before insert or update on public.albums
+for each row execute function public.trigger_set_timestamps();
+
+create trigger albums_set_user_tracking
+before insert or update on public.albums
+for each row execute function public.trigger_set_user_tracking();
+
+create trigger song_albums_set_user_tracking
+before insert on public.song_albums
 for each row execute function public.trigger_set_user_tracking();
 
 create trigger tags_set_timestamps
@@ -413,6 +533,8 @@ execute function kit.protect_member_owner_fields ();
 alter table public.members enable row level security;
 alter table public.member_private_financial enable row level security;
 alter table public.songs enable row level security;
+alter table public.albums enable row level security;
+alter table public.song_albums enable row level security;
 alter table public.tags enable row level security;
 alter table public.song_tags enable row level security;
 alter table public.parts enable row level security;
@@ -533,6 +655,58 @@ with
 create policy songs_owner_delete on public.songs for delete
   to authenticated using (
     public.has_role_on_account(account_id, 'owner')
+    or public.is_super_admin()
+  );
+
+create policy albums_read on public.albums for
+select
+  to authenticated using (
+    public.has_permission((select auth.uid()), account_id, 'songs.read'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy albums_manage_insert on public.albums for
+insert
+  to authenticated with check (
+    public.has_permission((select auth.uid()), account_id, 'songs.manage'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy albums_manage_update on public.albums for
+update
+  to authenticated using (
+    public.has_permission((select auth.uid()), account_id, 'songs.manage'::public.app_permissions)
+    or public.is_super_admin()
+  )
+with
+  check (
+    public.has_permission((select auth.uid()), account_id, 'songs.manage'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy albums_manage_delete on public.albums for delete
+  to authenticated using (
+    public.has_permission((select auth.uid()), account_id, 'songs.manage'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy song_albums_read on public.song_albums for
+select
+  to authenticated using (
+    public.has_permission((select auth.uid()), account_id, 'songs.read'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy song_albums_manage_insert on public.song_albums for
+insert
+  to authenticated with check (
+    public.has_permission((select auth.uid()), account_id, 'songs.manage'::public.app_permissions)
+    or public.is_super_admin()
+  );
+
+create policy song_albums_manage_delete on public.song_albums for delete
+  to authenticated using (
+    public.has_permission((select auth.uid()), account_id, 'songs.manage'::public.app_permissions)
     or public.is_super_admin()
   );
 

@@ -120,6 +120,23 @@ values (
   'learning'
 );
 
+insert into public.albums (
+  id,
+  account_id,
+  slug,
+  title,
+  released_on,
+  cover_art_url
+)
+values (
+  'adadadad-adad-4ada-8ada-adadadadadad',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'test-record',
+  'Test Record',
+  '1966-05-16',
+  'https://example.com/test-record.jpg'
+);
+
 insert into public.tags (
   id,
   account_id,
@@ -142,6 +159,19 @@ values (
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
   'abababab-abab-4aba-8aba-abababababab'
+);
+
+insert into public.song_albums (
+  account_id,
+  song_id,
+  album_id,
+  order_index
+)
+values (
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  'adadadad-adad-4ada-8ada-adadadadadad',
+  1
 );
 
 insert into public.parts (
@@ -189,6 +219,8 @@ values (
 select tests.rls_enabled('public', 'members');
 select tests.rls_enabled('public', 'member_private_financial');
 select tests.rls_enabled('public', 'songs');
+select tests.rls_enabled('public', 'albums');
+select tests.rls_enabled('public', 'song_albums');
 select tests.rls_enabled('public', 'tags');
 select tests.rls_enabled('public', 'song_tags');
 select tests.rls_enabled('public', 'parts');
@@ -205,6 +237,31 @@ select lives_ok(
   $$ insert into public.songs (account_id, title, status)
      values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Owner Inserted Song', 'candidate') $$,
   'Owner can insert songs'
+);
+
+select isnt_empty(
+  $$ select * from public.songs
+     where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+       and slug = 'owner-inserted-song' $$,
+  'Song slug is generated from title'
+);
+
+select lives_ok(
+  $$ insert into public.albums (account_id, slug, title, released_on)
+     values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'owner-inserted-record', 'Owner Inserted Record', '1967-09-18') $$,
+  'Owner can insert albums'
+);
+
+select lives_ok(
+  $$ insert into public.song_albums (account_id, song_id, album_id)
+     select 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', songs.id, albums.id
+     from public.songs
+     cross join public.albums
+     where songs.account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+       and songs.slug = 'owner-inserted-song'
+       and albums.account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+       and albums.slug = 'owner-inserted-record' $$,
+  'Owner can link songs to albums'
 );
 
 select lives_ok(
@@ -290,6 +347,16 @@ select isnt_empty(
 );
 
 select isnt_empty(
+  $$ select * from public.albums where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Member can read albums in their band account'
+);
+
+select isnt_empty(
+  $$ select * from public.song_albums where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Member can read song album links'
+);
+
+select isnt_empty(
   $$ select * from public.tags where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
   'Member can read song tags in their band account'
 );
@@ -314,6 +381,13 @@ select throws_ok(
      values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Member Inserted Song', 'candidate') $$,
   'new row violates row-level security policy for table "songs"',
   'Member cannot insert songs'
+);
+
+select throws_ok(
+  $$ insert into public.albums (account_id, slug, title)
+     values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'member-record', 'Member Record') $$,
+  'new row violates row-level security policy for table "albums"',
+  'Member cannot insert albums'
 );
 
 select throws_ok(
@@ -369,6 +443,16 @@ select makerkit.authenticate_as('swell_outsider');
 select is_empty(
   $$ select * from public.songs where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
   'Outsider cannot read songs'
+);
+
+select is_empty(
+  $$ select * from public.albums where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Outsider cannot read albums'
+);
+
+select is_empty(
+  $$ select * from public.song_albums where account_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' $$,
+  'Outsider cannot read song album links'
 );
 
 select is_empty(

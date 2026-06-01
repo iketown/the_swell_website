@@ -138,6 +138,85 @@ export type Database = {
           },
         ]
       }
+      albums: {
+        Row: {
+          account_id: string
+          album_type: string
+          cover_art_url: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          original_artist: string
+          reference_url: string | null
+          release_year: number | null
+          released_on: string | null
+          slug: string
+          studio: boolean
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          album_type?: string
+          cover_art_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          original_artist?: string
+          reference_url?: string | null
+          release_year?: number | null
+          released_on?: string | null
+          slug: string
+          studio?: boolean
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          album_type?: string
+          cover_art_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          original_artist?: string
+          reference_url?: string | null
+          release_year?: number | null
+          released_on?: string | null
+          slug?: string
+          studio?: boolean
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "albums_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "albums_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "albums_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_customers: {
         Row: {
           account_id: string
@@ -761,6 +840,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           default_member_id: string | null
+          description: string | null
           id: string
           is_lead: boolean
           label: string | null
@@ -777,6 +857,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_member_id?: string | null
+          description?: string | null
           id?: string
           is_lead?: boolean
           label?: string | null
@@ -793,6 +874,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_member_id?: string | null
+          description?: string | null
           id?: string
           is_lead?: boolean
           label?: string | null
@@ -883,6 +965,72 @@ export type Database = {
         }
         Relationships: []
       }
+      song_albums: {
+        Row: {
+          account_id: string
+          album_id: string
+          created_at: string
+          created_by: string | null
+          order_index: number
+          song_id: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          album_id: string
+          created_at?: string
+          created_by?: string | null
+          order_index?: number
+          song_id: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          album_id?: string
+          created_at?: string
+          created_by?: string | null
+          order_index?: number
+          song_id?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "song_albums_account_id_album_id_fkey"
+            columns: ["account_id", "album_id"]
+            isOneToOne: false
+            referencedRelation: "albums"
+            referencedColumns: ["account_id", "id"]
+          },
+          {
+            foreignKeyName: "song_albums_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_albums_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_albums_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_albums_account_id_song_id_fkey"
+            columns: ["account_id", "song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["account_id", "id"]
+          },
+        ]
+      }
       song_tags: {
         Row: {
           account_id: string
@@ -956,6 +1104,8 @@ export type Database = {
           id: string
           notes: string | null
           original_artist: string | null
+          popularity_rank: number | null
+          slug: string
           song_key: string | null
           status: Database["public"]["Enums"]["song_status"]
           title: string
@@ -972,6 +1122,8 @@ export type Database = {
           id?: string
           notes?: string | null
           original_artist?: string | null
+          popularity_rank?: number | null
+          slug?: string
           song_key?: string | null
           status?: Database["public"]["Enums"]["song_status"]
           title: string
@@ -988,6 +1140,8 @@ export type Database = {
           id?: string
           notes?: string | null
           original_artist?: string | null
+          popularity_rank?: number | null
+          slug?: string
           song_key?: string | null
           status?: Database["public"]["Enums"]["song_status"]
           title?: string
@@ -1532,7 +1686,8 @@ export type Database = {
         | "keys"
         | "bass"
         | "drums"
-      part_type: "vocal" | "instrumental"
+        | "other"
+      part_type: "vocal" | "instrumental" | "other"
       payment_status: "pending" | "succeeded" | "failed"
       song_status: "active" | "learning" | "candidate" | "retired"
       subscription_item_type: "flat" | "per_seat" | "metered"
@@ -2264,8 +2419,9 @@ export const Constants = {
         "keys",
         "bass",
         "drums",
+        "other",
       ],
-      part_type: ["vocal", "instrumental"],
+      part_type: ["vocal", "instrumental", "other"],
       payment_status: ["pending", "succeeded", "failed"],
       song_status: ["active", "learning", "candidate", "retired"],
       subscription_item_type: ["flat", "per_seat", "metered"],
@@ -2288,4 +2444,3 @@ export const Constants = {
     },
   },
 } as const
-
