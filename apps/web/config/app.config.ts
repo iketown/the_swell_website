@@ -1,16 +1,15 @@
 import * as z from 'zod';
 
 const production = process.env.NODE_ENV === 'production';
+const browserRuntime = typeof window !== 'undefined';
 const vercelPreview =
   process.env.VERCEL_ENV === 'preview' ||
   process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview';
 const vercelPreviewUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
   : undefined;
-const browserPreviewUrl =
-  typeof window !== 'undefined' && vercelPreview
-    ? window.location.origin
-    : undefined;
+const browserUrl = browserRuntime ? window.location.origin : undefined;
+const previewOrBrowserRuntime = vercelPreview || browserRuntime;
 
 const AppConfigSchema = z
   .object({
@@ -68,24 +67,24 @@ const AppConfigSchema = z
 const appConfig = AppConfigSchema.parse({
   name:
     process.env.NEXT_PUBLIC_PRODUCT_NAME ??
-    (vercelPreview ? 'The Swell' : undefined),
+    (previewOrBrowserRuntime ? 'The Swell' : undefined),
   title:
     process.env.NEXT_PUBLIC_SITE_TITLE ??
-    (vercelPreview ? 'The Swell' : undefined),
+    (previewOrBrowserRuntime ? 'The Swell' : undefined),
   description:
     process.env.NEXT_PUBLIC_SITE_DESCRIPTION ??
-    (vercelPreview ? 'The Swell band OS' : undefined),
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? vercelPreviewUrl ?? browserPreviewUrl,
+    (previewOrBrowserRuntime ? 'The Swell band OS' : undefined),
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? vercelPreviewUrl ?? browserUrl,
   locale: process.env.NEXT_PUBLIC_DEFAULT_LOCALE,
   theme:
     process.env.NEXT_PUBLIC_DEFAULT_THEME_MODE ??
-    (vercelPreview ? 'light' : undefined),
+    (previewOrBrowserRuntime ? 'light' : undefined),
   themeColor:
     process.env.NEXT_PUBLIC_THEME_COLOR ??
-    (vercelPreview ? '#ffffff' : undefined),
+    (previewOrBrowserRuntime ? '#ffffff' : undefined),
   themeColorDark:
     process.env.NEXT_PUBLIC_THEME_COLOR_DARK ??
-    (vercelPreview ? '#0a0a0a' : undefined),
+    (previewOrBrowserRuntime ? '#0a0a0a' : undefined),
   production,
 });
 
