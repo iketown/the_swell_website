@@ -1,10 +1,16 @@
 import * as z from 'zod';
 
 const production = process.env.NODE_ENV === 'production';
-const vercelPreview = process.env.VERCEL_ENV === 'preview';
+const vercelPreview =
+  process.env.VERCEL_ENV === 'preview' ||
+  process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview';
 const vercelPreviewUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
   : undefined;
+const browserPreviewUrl =
+  typeof window !== 'undefined' && vercelPreview
+    ? window.location.origin
+    : undefined;
 
 const AppConfigSchema = z
   .object({
@@ -69,7 +75,7 @@ const appConfig = AppConfigSchema.parse({
   description:
     process.env.NEXT_PUBLIC_SITE_DESCRIPTION ??
     (vercelPreview ? 'The Swell band OS' : undefined),
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? vercelPreviewUrl,
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? vercelPreviewUrl ?? browserPreviewUrl,
   locale: process.env.NEXT_PUBLIC_DEFAULT_LOCALE,
   theme:
     process.env.NEXT_PUBLIC_DEFAULT_THEME_MODE ??
