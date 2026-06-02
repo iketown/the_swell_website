@@ -77,7 +77,9 @@ export default async function PartDetailPage({ params }: PartDetailPageProps) {
   const member = part.default_member_id
     ? data.memberById.get(part.default_member_id)
     : null;
-  const files = data.filesByPartId.get(part.id) ?? [];
+  const files = (data.filesByPartId.get(part.id) ?? []).filter(
+    isUploadedPartFile,
+  );
   const signedFiles = await getSignedPartFiles(files);
   const attachedStoragePaths = new Set(files.map((file) => file.storage_path));
   const songPartById = new Map(
@@ -87,9 +89,11 @@ export default async function PartDetailPage({ params }: PartDetailPageProps) {
   );
   const attachableSongFiles = getAttachableSongFiles({
     attachedStoragePaths,
-    files: data.files,
+    files: data.files.filter(isUploadedPartFile),
     songPartById,
-    songFiles: data.songFilesBySongId.get(song.id) ?? [],
+    songFiles: (data.songFilesBySongId.get(song.id) ?? []).filter(
+      isUploadedPartFile,
+    ),
   });
 
   return (
@@ -386,6 +390,16 @@ async function getSignedPartFiles<T extends { storage_path: string }>(
       };
     }),
   );
+}
+
+function isUploadedPartFile<
+  FileRow extends {
+    kind: string;
+    label: string;
+    storage_path: string;
+  },
+>(file: FileRow): file is FileRow & { kind: 'chart_pdf' | 'guide_audio' } {
+  return file.kind === 'chart_pdf' || file.kind === 'guide_audio';
 }
 
 type AttachableSongFile = {

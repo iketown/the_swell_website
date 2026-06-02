@@ -62,7 +62,8 @@ create type public.song_status as enum(
 
 create type public.part_file_kind as enum(
   'guide_audio',
-  'chart_pdf'
+  'chart_pdf',
+  'rich_text_note'
 );
 
 create type public.song_part_assignment_area as enum(
@@ -358,10 +359,14 @@ create table if not exists
       (
         kind = 'guide_audio'
         and mime_type in ('audio/mpeg', 'audio/mp3')
+        and storage_path is not null
+        and content is null
       )
       or (
         kind = 'chart_pdf'
         and mime_type = 'application/pdf'
+        and storage_path is not null
+        and content is null
       )
     )
   );
@@ -376,11 +381,18 @@ create table if not exists
     kind public.part_file_kind not null,
     title varchar(255) not null check (length(trim(title)) > 0),
     description text,
-    storage_path varchar(1000) not null check (length(trim(storage_path)) > 0),
-    mime_type varchar(120) not null,
+    storage_path varchar(1000) check (
+      storage_path is null
+      or length(trim(storage_path)) > 0
+    ),
+    mime_type varchar(120),
     size_bytes bigint check (
       size_bytes is null
       or size_bytes > 0
+    ),
+    content jsonb check (
+      content is null
+      or jsonb_typeof(content) = 'object'
     ),
     default_area public.song_part_assignment_area,
     order_index integer not null default 0 check (order_index >= 0),
@@ -401,10 +413,18 @@ create table if not exists
         kind = 'chart_pdf'
         and mime_type = 'application/pdf'
       )
+      or (
+        kind = 'rich_text_note'
+        and storage_path is null
+        and mime_type is null
+        and size_bytes is null
+        and content is not null
+      )
     )
   );
 
-comment on table public.song_part_assets is 'Single-file song parts that can be assigned to one or more members';
+comment on table public.song_part_assets is 'Song part assets that can be assigned to one or more members, including uploaded files and rich text notes';
+comment on column public.song_part_assets.content is 'Tiptap JSON content for rich text note assets';
 
 create table if not exists
   public.song_part_assignments (

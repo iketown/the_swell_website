@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
 import {
   Check,
   GripVertical,
+  Plus,
   Settings2,
   SlidersHorizontal,
+  StickyNote,
   Trash2,
   X,
 } from 'lucide-react';
@@ -37,6 +39,7 @@ import { cn } from '@kit/ui/utils';
 
 import {
   assignSongPartAssetAction,
+  createSongPartNoteAction,
   removeSongPartAssetAction,
   removeSongPartAssignmentAction,
   shareSongPartAssetAction,
@@ -44,10 +47,14 @@ import {
 } from '~/home/[account]/band/_lib/server/band-admin.actions';
 
 import { PartFileBadge } from '../../../_components/part-file-badge';
+import {
+  PartNoteContent,
+  PartNoteEditor,
+} from '../../../_components/part-note-rich-text';
 
 type AssignmentArea = 'vocal' | 'instrumental';
 type AssetDefaultArea = AssignmentArea | 'shared';
-type AssetKind = 'guide_audio' | 'chart_pdf';
+type AssetKind = 'guide_audio' | 'chart_pdf' | 'rich_text_note';
 
 type Member = {
   display_name: string;
@@ -55,6 +62,7 @@ type Member = {
 };
 
 type SongPartAsset = {
+  content: PartNoteContent | null;
   default_area: AssetDefaultArea | null;
   description: string | null;
   id: string;
@@ -84,11 +92,20 @@ const areas = [
   ['vocal', 'Vocal'],
   ['instrumental', 'Instrumental'],
 ] as const;
+const emptyNoteContent: PartNoteContent = {
+  content: [
+    {
+      type: 'paragraph',
+    },
+  ],
+  type: 'doc',
+};
 
 export function SongPartAssignmentGrid({
   accountSlug,
   assignments,
   assets,
+  canManageBand,
   members,
   songId,
   songTitle,
@@ -96,6 +113,7 @@ export function SongPartAssignmentGrid({
   accountSlug: string;
   assignments: SongPartAssignment[];
   assets: SongPartAsset[];
+  canManageBand: boolean;
   members: Member[];
   songId: string;
   songTitle: string;
@@ -109,6 +127,14 @@ export function SongPartAssignmentGrid({
     useState<SongPartAsset | null>(null);
   const [pendingAssetRemoval, setPendingAssetRemoval] =
     useState<PendingAssetRemoval | null>(null);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
+  const [noteScope, setNoteScope] = useState<'member' | 'shared'>('shared');
+  const [noteMemberId, setNoteMemberId] = useState(members[0]?.id ?? '');
+  const [noteArea, setNoteArea] = useState<AssignmentArea>('vocal');
+  const [noteTitle, setNoteTitle] = useState('Performance note');
+  const [noteContent, setNoteContent] =
+    useState<PartNoteContent>(emptyNoteContent);
+  const latestNoteContentRef = useRef<PartNoteContent>(emptyNoteContent);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [memberOrderIds, setMemberOrderIds] = useState<string[]>(() =>
     members.map((member) => member.id),
@@ -456,6 +482,37 @@ export function SongPartAssignmentGrid({
     });
   }
 
+  function createNote() {
+    const contentToSave = latestNoteContentRef.current;
+
+    setError(null);
+    startTransition(() => {
+      void createSongPartNoteAction({
+        accountSlug,
+        area: noteScope === 'member' ? noteArea : null,
+        content: contentToSave,
+        memberId: noteScope === 'member' ? noteMemberId : null,
+        scope: noteScope,
+        songId,
+        title: noteTitle,
+      })
+        .then(() => {
+          setNoteDialogOpen(false);
+          setNoteTitle('Performance note');
+          setNoteContent(emptyNoteContent);
+          latestNoteContentRef.current = emptyNoteContent;
+          router.refresh();
+        })
+        .catch((reason: unknown) => {
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : 'Could not create that note.',
+          );
+        });
+    });
+  }
+
   function handleTrashDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setIsTrashOver(false);
@@ -495,7 +552,117 @@ export function SongPartAssignmentGrid({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        {canManageBand ? (
+          <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+            <DialogTrigger render={<Button type="button" variant="outline" />}>
+              <Plus data-icon="inline-start" />
+              Add note
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Add text note</DialogTitle>
+                <DialogDescription>
+                  Create a rich text note for ALL or a specific member bucket.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4">
+                <label className="grid gap-1.5 text-sm">
+                  <span className="font-medium">Title</span>
+                  <input
+                    className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 rounded-lg border px-3 outline-none focus-visible:ring-3"
+                    maxLength={255}
+                    onChange={(event) => setNoteTitle(event.target.value)}
+                    value={noteTitle}
+                  />
+                </label>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="font-medium">Bucket</span>
+                    <select
+                      className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 rounded-lg border px-3 outline-none focus-visible:ring-3"
+                      onChange={(event) =>
+                        setNoteScope(
+                          event.target.value === 'member'
+                            ? 'member'
+                            : 'shared',
+                        )
+                      }
+                      value={noteScope}
+                    >
+                      <option value="shared">ALL</option>
+                      <option value="member">Member</option>
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="font-medium">Member</span>
+                    <select
+                      className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 rounded-lg border px-3 outline-none disabled:opacity-50 focus-visible:ring-3"
+                      disabled={noteScope !== 'member'}
+                      onChange={(event) => setNoteMemberId(event.target.value)}
+                      value={noteMemberId}
+                    >
+                      {members.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.display_name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1.5 text-sm">
+                    <span className="font-medium">Area</span>
+                    <select
+                      className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 rounded-lg border px-3 outline-none disabled:opacity-50 focus-visible:ring-3"
+                      disabled={noteScope !== 'member'}
+                      onChange={(event) =>
+                        setNoteArea(
+                          event.target.value === 'instrumental'
+                            ? 'instrumental'
+                            : 'vocal',
+                        )
+                      }
+                      value={noteArea}
+                    >
+                      <option value="vocal">Vocal</option>
+                      <option value="instrumental">Instrumental</option>
+                    </select>
+                  </label>
+                </div>
+
+                <PartNoteEditor
+                  content={noteContent}
+                  onChange={(nextContent) => {
+                    latestNoteContentRef.current = nextContent;
+                    setNoteContent(nextContent);
+                  }}
+                />
+              </div>
+              <DialogFooter>
+                <DialogClose
+                  render={<Button type="button" variant="outline" />}
+                >
+                  Cancel
+                </DialogClose>
+                <Button
+                  disabled={
+                    isPending ||
+                    noteTitle.trim().length === 0 ||
+                    (noteScope === 'member' && noteMemberId.length === 0)
+                  }
+                  onClick={createNote}
+                  type="button"
+                >
+                  <StickyNote data-icon="inline-start" />
+                  Create note
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : null}
+
         <Dialog>
           <DialogTrigger render={<Button type="button" variant="outline" />}>
             <Settings2 data-icon="inline-start" />
@@ -560,6 +727,7 @@ export function SongPartAssignmentGrid({
               </TableCell>
               <TableCell className="align-top" colSpan={2}>
                 <SharedDropTarget
+                  accountSlug={canManageBand ? accountSlug : undefined}
                   assets={sharedAssets}
                   hoveredAssetId={hoveredAssetId}
                   isPending={isPending}
@@ -578,6 +746,7 @@ export function SongPartAssignmentGrid({
                   {areas.map(([area]) => (
                     <TableCell className="align-top" key={area}>
                       <AssignmentDropTarget
+                        accountSlug={canManageBand ? accountSlug : undefined}
                         area={area}
                         assetById={assetById}
                         assignments={
@@ -616,6 +785,7 @@ export function SongPartAssignmentGrid({
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem]">
         <PartPool
+          accountSlug={canManageBand ? accountSlug : undefined}
           assets={unassignedAssets}
           assignmentCountByAssetId={assignmentCountByAssetId}
           emptyText="No unassigned files."
@@ -624,6 +794,7 @@ export function SongPartAssignmentGrid({
           tone="available"
         />
         <PartPool
+          accountSlug={canManageBand ? accountSlug : undefined}
           assets={assignedAssets}
           assignmentCountByAssetId={assignmentCountByAssetId}
           emptyText="No assigned files yet."
@@ -784,12 +955,14 @@ function SortableMemberRow({
 }
 
 function SharedDropTarget({
+  accountSlug,
   assets,
   hoveredAssetId,
   isPending,
   onHoverAsset,
   onShare,
 }: {
+  accountSlug?: string;
   assets: SongPartAsset[];
   hoveredAssetId: string | null;
   isPending: boolean;
@@ -806,6 +979,10 @@ function SharedDropTarget({
       )}
       onDragLeave={() => setIsOver(false)}
       onDragOver={(event) => {
+        if (!accountSlug) {
+          return;
+        }
+
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
         setIsOver(true);
@@ -813,6 +990,11 @@ function SharedDropTarget({
       onDrop={(event) => {
         event.preventDefault();
         setIsOver(false);
+
+        if (!accountSlug) {
+          return;
+        }
+
         const assetId =
           event.dataTransfer.getData(dragDataType) ||
           event.dataTransfer.getData('text/plain');
@@ -827,6 +1009,7 @@ function SharedDropTarget({
       {assets.length > 0 ? (
         assets.map((asset) => (
           <SharedBadge
+            accountSlug={accountSlug}
             asset={asset}
             highlighted={hoveredAssetId === asset.id}
             isPending={isPending}
@@ -844,6 +1027,7 @@ function SharedDropTarget({
 }
 
 function AssignmentDropTarget({
+  accountSlug,
   area,
   assetById,
   assignments,
@@ -853,6 +1037,7 @@ function AssignmentDropTarget({
   onAssign,
   onRemove,
 }: {
+  accountSlug?: string;
   area: AssignmentArea;
   assetById: Map<string, SongPartAsset>;
   assignments: SongPartAssignment[];
@@ -876,6 +1061,10 @@ function AssignmentDropTarget({
       )}
       onDragLeave={() => setIsOver(false)}
       onDragOver={(event) => {
+        if (!accountSlug) {
+          return;
+        }
+
         event.preventDefault();
         event.dataTransfer.dropEffect = 'copy';
         setIsOver(true);
@@ -883,6 +1072,11 @@ function AssignmentDropTarget({
       onDrop={(event) => {
         event.preventDefault();
         setIsOver(false);
+
+        if (!accountSlug) {
+          return;
+        }
+
         const assetId =
           event.dataTransfer.getData(dragDataType) ||
           event.dataTransfer.getData('text/plain');
@@ -903,6 +1097,7 @@ function AssignmentDropTarget({
 
         return (
           <AssignedBadge
+            accountSlug={accountSlug}
             asset={asset}
             assignmentId={assignment.id}
             highlighted={hoveredAssetId === asset.id}
@@ -917,6 +1112,7 @@ function AssignmentDropTarget({
 }
 
 function PartPool({
+  accountSlug,
   assets,
   assignmentCountByAssetId,
   emptyText,
@@ -924,6 +1120,7 @@ function PartPool({
   title,
   tone,
 }: {
+  accountSlug?: string;
   assets: SongPartAsset[];
   assignmentCountByAssetId: Map<string, number>;
   emptyText: string;
@@ -938,6 +1135,7 @@ function PartPool({
         {assets.length > 0 ? (
           assets.map((asset) => (
             <DraggablePoolBadge
+              accountSlug={accountSlug}
               asset={asset}
               count={assignmentCountByAssetId.get(asset.id) ?? 0}
               key={asset.id}
@@ -984,11 +1182,13 @@ function TrashDropZone({
 }
 
 function DraggablePoolBadge({
+  accountSlug,
   asset,
   count,
   onHover,
   tone,
 }: {
+  accountSlug?: string;
   asset: SongPartAsset;
   count: number;
   onHover: (assetId: string | null) => void;
@@ -996,13 +1196,21 @@ function DraggablePoolBadge({
 }) {
   return (
     <PartFileBadge
+      accountSlug={accountSlug}
+      assetId={asset.id}
       className="cursor-grab active:cursor-grabbing"
       count={count}
-      draggable
+      draggable={Boolean(accountSlug)}
       kind={asset.kind}
       label={asset.title}
       labelClassName="max-w-52"
+      noteContent={asset.content}
       onDragStart={(event) => {
+        if (!accountSlug) {
+          event.preventDefault();
+          return;
+        }
+
         event.dataTransfer.effectAllowed = 'copyMove';
         event.dataTransfer.setData(dragDataType, asset.id);
         event.dataTransfer.setData('text/plain', asset.id);
@@ -1018,12 +1226,14 @@ function DraggablePoolBadge({
 }
 
 function AssignedBadge({
+  accountSlug,
   asset,
   assignmentId,
   highlighted,
   isPending,
   onRemove,
 }: {
+  accountSlug?: string;
   asset: SongPartAsset;
   assignmentId: string;
   highlighted: boolean;
@@ -1032,12 +1242,20 @@ function AssignedBadge({
 }) {
   return (
     <PartFileBadge
+      accountSlug={accountSlug}
+      assetId={asset.id}
       className="transition"
-      draggable
+      draggable={Boolean(accountSlug)}
       kind={asset.kind}
       label={asset.title}
       labelClassName="max-w-44"
+      noteContent={asset.content}
       onDragStart={(event) => {
+        if (!accountSlug) {
+          event.preventDefault();
+          return;
+        }
+
         event.dataTransfer.effectAllowed = 'copyMove';
         event.dataTransfer.setData(assignmentDragDataType, assignmentId);
         event.dataTransfer.setData(dragDataType, asset.id);
@@ -1048,25 +1266,29 @@ function AssignedBadge({
       tooltip={asset.description ?? asset.title}
       variant="outline"
     >
-      <button
-        aria-label={`Remove ${asset.title}`}
-        className="hover:bg-muted ml-0.5 inline-flex size-5 items-center justify-center rounded-full"
-        disabled={isPending}
-        onClick={onRemove}
-        type="button"
-      >
-        <X className="size-3.5" />
-      </button>
+      {accountSlug ? (
+        <button
+          aria-label={`Remove ${asset.title}`}
+          className="hover:bg-muted ml-0.5 inline-flex size-5 items-center justify-center rounded-full"
+          disabled={isPending}
+          onClick={onRemove}
+          type="button"
+        >
+          <X className="size-3.5" />
+        </button>
+      ) : null}
     </PartFileBadge>
   );
 }
 
 function SharedBadge({
+  accountSlug,
   asset,
   highlighted,
   isPending,
   onHover,
 }: {
+  accountSlug?: string;
   asset: SongPartAsset;
   highlighted: boolean;
   isPending: boolean;
@@ -1074,12 +1296,20 @@ function SharedBadge({
 }) {
   return (
     <PartFileBadge
+      accountSlug={accountSlug}
+      assetId={asset.id}
       className="cursor-grab transition active:cursor-grabbing"
-      draggable={!isPending}
+      draggable={Boolean(accountSlug) && !isPending}
       kind={asset.kind}
       label={asset.title}
       labelClassName="max-w-52"
+      noteContent={asset.content}
       onDragStart={(event) => {
+        if (!accountSlug) {
+          event.preventDefault();
+          return;
+        }
+
         event.dataTransfer.effectAllowed = 'copyMove';
         event.dataTransfer.setData(sharedDragDataType, asset.id);
         event.dataTransfer.setData(dragDataType, asset.id);

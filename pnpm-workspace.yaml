@@ -36,6 +36,9 @@ catalog:
   '@tailwindcss/postcss': ^4.3.0
   '@tanstack/react-query': 5.100.14
   '@tanstack/react-table': ^8.21.3
+  '@tiptap/extension-link': ^3.24.0
+  '@tiptap/react': ^3.24.0
+  '@tiptap/starter-kit': ^3.24.0
   '@turbo/gen': ^2.9.15
   '@types/node': 25.9.1
   '@types/nodemailer': 8.0.0

@@ -19,6 +19,7 @@ import { TeamAccountLayoutPageHeader } from '~/home/[account]/_components/team-a
 import { loadBandAdminData } from '~/home/[account]/band/_lib/server/band-admin.loader';
 
 import { loadSwellWorkspace } from '../../_lib/server/swell-workspace.loader';
+import type { PartNoteContent } from '../_components/part-note-rich-text';
 import { SongFileUploadForm } from './parts/_components/song-file-upload-form';
 import { SongPartAssignmentGrid } from './parts/_components/song-part-assignment-grid';
 
@@ -44,15 +45,34 @@ export default async function SongPartsPage({ params }: SongPartsPageProps) {
     notFound();
   }
 
-  const members = data.members.filter(
-    (member) => member.status === 'active' && member.member_type === 'performer',
+  const canManageBand = data.canManageBand;
+  const currentMember = data.members.find(
+    (member) => member.user_id === workspace.user.id,
   );
-  const assets = data.songPartAssetsBySongId.get(song.id) ?? [];
-  const assignments = (data.songPartAssignmentsBySongId.get(song.id) ?? [])
-    .filter(isIndividualSongPartAssignment);
+  const members = data.members
+    .filter(
+      (member) =>
+        member.status === 'active' && member.member_type === 'performer',
+    )
+    .filter((member) => canManageBand || member.id === currentMember?.id);
+  const allAssets = data.songPartAssetsBySongId.get(song.id) ?? [];
+  const allAssignments = (
+    data.songPartAssignmentsBySongId.get(song.id) ?? []
+  ).filter(isIndividualSongPartAssignment);
+  const assignments = allAssignments.filter(
+    (assignment) => canManageBand || assignment.member_id === currentMember?.id,
+  );
+  const visibleAssetIds = new Set(assignments.map((assignment) => assignment.asset_id));
+  const assets = allAssets.filter(
+    (asset) =>
+      canManageBand ||
+      asset.default_area === 'shared' ||
+      visibleAssetIds.has(asset.id),
+  );
   const signedAssetUrlById = await getSignedAssetUrlById(assets);
   const signedAssets = assets.map((asset) => ({
     ...asset,
+    content: asset.content as PartNoteContent | null,
     signedUrl: signedAssetUrlById.get(asset.id) ?? null,
   }));
 
@@ -88,6 +108,7 @@ export default async function SongPartsPage({ params }: SongPartsPageProps) {
               accountSlug={workspace.account.slug}
               assignments={assignments}
               assets={signedAssets}
+              canManageBand={canManageBand}
               members={members}
               songId={song.id}
               songTitle={song.title}
@@ -115,11 +136,11 @@ export default async function SongPartsPage({ params }: SongPartsPageProps) {
 }
 
 async function getSignedAssetUrlById<
-  Asset extends { id: string; storage_path: string },
+  Asset extends { id: string; storage_path: string | null },
 >(assets: Asset[]) {
   const client = getSupabaseServerClient();
   const entries = await Promise.all(
-    assets.map(async (asset) => {
+    assets.filter(hasStoragePath).map(async (asset) => {
       const { data } = await client.storage
         .from('band_assets')
         .createSignedUrl(asset.storage_path, 60 * 60);
@@ -129,6 +150,12 @@ async function getSignedAssetUrlById<
   );
 
   return new Map(entries);
+}
+
+function hasStoragePath<Asset extends { storage_path: string | null }>(
+  asset: Asset,
+): asset is Asset & { storage_path: string } {
+  return Boolean(asset.storage_path);
 }
 
 function isIndividualSongPartAssignment<

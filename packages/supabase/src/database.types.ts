@@ -1116,14 +1116,15 @@ export type Database = {
           default_area:
             | Database["public"]["Enums"]["song_part_assignment_area"]
             | null
+          content: Json | null
           description: string | null
           id: string
           kind: Database["public"]["Enums"]["part_file_kind"]
-          mime_type: string
+          mime_type: string | null
           order_index: number
           size_bytes: number | null
           song_id: string
-          storage_path: string
+          storage_path: string | null
           title: string
           updated_at: string
           updated_by: string | null
@@ -1135,14 +1136,15 @@ export type Database = {
           default_area?:
             | Database["public"]["Enums"]["song_part_assignment_area"]
             | null
+          content?: Json | null
           description?: string | null
           id?: string
           kind: Database["public"]["Enums"]["part_file_kind"]
-          mime_type: string
+          mime_type?: string | null
           order_index?: number
           size_bytes?: number | null
           song_id: string
-          storage_path: string
+          storage_path?: string | null
           title: string
           updated_at?: string
           updated_by?: string | null
@@ -1154,14 +1156,15 @@ export type Database = {
           default_area?:
             | Database["public"]["Enums"]["song_part_assignment_area"]
             | null
+          content?: Json | null
           description?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["part_file_kind"]
-          mime_type?: string
+          mime_type?: string | null
           order_index?: number
           size_bytes?: number | null
           song_id?: string
-          storage_path?: string
+          storage_path?: string | null
           title?: string
           updated_at?: string
           updated_by?: string | null
@@ -1925,7 +1928,7 @@ export type Database = {
       member_type: "performer" | "crew"
       notification_channel: "in_app" | "email"
       notification_type: "info" | "warning" | "error"
-      part_file_kind: "guide_audio" | "chart_pdf"
+      part_file_kind: "guide_audio" | "chart_pdf" | "rich_text_note"
       song_part_assignment_area: "vocal" | "instrumental" | "shared"
       part_slot:
         | "vocal_1"
@@ -2659,7 +2662,7 @@ export const Constants = {
       member_type: ["performer", "crew"],
       notification_channel: ["in_app", "email"],
       notification_type: ["info", "warning", "error"],
-      part_file_kind: ["guide_audio", "chart_pdf"],
+      part_file_kind: ["guide_audio", "chart_pdf", "rich_text_note"],
       song_part_assignment_area: ["vocal", "instrumental", "shared"],
       part_slot: [
         "vocal_1",

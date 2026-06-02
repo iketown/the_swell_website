@@ -27,6 +27,7 @@ import { TeamAccountLayoutPageHeader } from '~/home/[account]/_components/team-a
 import { loadBandAdminData } from '~/home/[account]/band/_lib/server/band-admin.loader';
 
 import { loadSwellWorkspace } from '../../../_lib/server/swell-workspace.loader';
+import type { PartNoteContent } from '../../_components/part-note-rich-text';
 import { MemberPartFileBadges } from './_components/member-part-file-badges';
 
 interface MemberPartsPageProps {
@@ -52,6 +53,10 @@ export default async function MemberPartsPage({
   );
 
   if (!member) {
+    notFound();
+  }
+
+  if (!data.canManageBand && member.user_id !== workspace.user.id) {
     notFound();
   }
 
@@ -134,6 +139,7 @@ export default async function MemberPartsPage({
                         <MemberPartFileBadges
                           files={songAssignments.map(({ area, asset }) => ({
                             area,
+                            content: asset.content as PartNoteContent | null,
                             description: asset.description,
                             id: asset.id,
                             kind: asset.kind,
@@ -170,10 +176,11 @@ function groupAssignmentsBySong<
     song_id: string;
   },
   Asset extends {
+    content: unknown;
     description: string | null;
     id: string;
-    kind: 'chart_pdf' | 'guide_audio';
-    storage_path: string;
+    kind: 'chart_pdf' | 'guide_audio' | 'rich_text_note';
+    storage_path: string | null;
     title: string;
   },
   Song extends {
@@ -242,11 +249,12 @@ function isIndividualSongPartAssignment<
 }
 
 async function getSignedAssetUrlById<
-  Asset extends { id: string; storage_path: string },
+  Asset extends { id: string; storage_path: string | null },
 >(assets: Asset[]) {
   const client = getSupabaseServerClient();
   const uniqueAssets = [
-    ...new Map(assets.map((asset) => [asset.id, asset])).values(),
+    ...new Map(assets.filter(hasStoragePath).map((asset) => [asset.id, asset]))
+      .values(),
   ];
   const entries = await Promise.all(
     uniqueAssets.map(async (asset) => {
@@ -259,4 +267,10 @@ async function getSignedAssetUrlById<
   );
 
   return new Map(entries);
+}
+
+function hasStoragePath<Asset extends { storage_path: string | null }>(
+  asset: Asset,
+): asset is Asset & { storage_path: string } {
+  return Boolean(asset.storage_path);
 }

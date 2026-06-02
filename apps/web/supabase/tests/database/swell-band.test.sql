@@ -366,6 +366,19 @@ select lives_ok(
 );
 
 select lives_ok(
+  $$ insert into public.song_part_assets (account_id, song_id, kind, title, content, default_area)
+     values (
+       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+       'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+       'rich_text_note',
+       'Owner shared note',
+       '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"High part on verses."}]}]}'::jsonb,
+       'shared'
+     ) $$,
+  'Owner can insert rich text song part notes'
+);
+
+select lives_ok(
   $$ insert into public.song_part_assignments (account_id, song_id, asset_id, member_id, area)
      select
        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -492,6 +505,14 @@ select isnt_empty(
 select isnt_empty(
   $$ select * from public.song_part_assets where song_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' $$,
   'Member can read song part assets'
+);
+
+select isnt_empty(
+  $$ select * from public.song_part_assets
+     where song_id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+       and kind = 'rich_text_note'
+       and content is not null $$,
+  'Member can read rich text song part notes'
 );
 
 select isnt_empty(

@@ -7,13 +7,14 @@ import * as z from 'zod';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 
 import { loadTeamWorkspace } from '~/home/[account]/_lib/server/team-account-workspace.loader';
-import { Database } from '~/lib/database.types';
+import { Database, Json } from '~/lib/database.types';
 
 type InstrumentSlot = Database['public']['Enums']['instrument_slot'];
 type VocalSlot = Database['public']['Enums']['vocal_slot'];
 type PartSlot = Database['public']['Enums']['part_slot'];
 type PartType = Database['public']['Enums']['part_type'];
 type PartFileKind = Database['public']['Enums']['part_file_kind'];
+type UploadedPartFileKind = Extract<PartFileKind, 'chart_pdf' | 'guide_audio'>;
 type SongPartAssignmentArea =
   Database['public']['Enums']['song_part_assignment_area'];
 type SupabaseServerClient = ReturnType<
@@ -156,6 +157,25 @@ const AssignSongPartAssetSchema = AccountSlugSchema.extend({
 const ShareSongPartAssetSchema = AccountSlugSchema.extend({
   songId: z.string().uuid(),
   assetId: z.string().uuid(),
+});
+
+const RichTextDocSchema = z
+  .unknown()
+  .refine(isRichTextDoc, 'Rich text content must be a Tiptap document.');
+
+const CreateSongPartNoteSchema = AccountSlugSchema.extend({
+  area: z.enum(['vocal', 'instrumental']).nullable(),
+  content: RichTextDocSchema,
+  memberId: z.string().uuid().nullable(),
+  scope: z.enum(['shared', 'member']),
+  songId: z.string().uuid(),
+  title: z.string().trim().min(1).max(255),
+});
+
+const UpdateSongPartNoteSchema = AccountSlugSchema.extend({
+  assetId: z.string().uuid(),
+  content: RichTextDocSchema,
+  title: z.string().trim().min(1).max(255),
 });
 
 const UnshareSongPartAssetSchema = AccountSlugSchema.extend({
@@ -500,12 +520,16 @@ export async function uploadSongFileAction(formData: FormData) {
     throw lastFilesError;
   }
 
-  const nextOrderIndexByKind: Record<PartFileKind, number> = {
+  const nextOrderIndexByKind: Record<UploadedPartFileKind, number> = {
     chart_pdf: -1,
     guide_audio: -1,
   };
 
   for (const file of lastFiles ?? []) {
+    if (!isUploadedPartFileKind(file.kind)) {
+      continue;
+    }
+
     nextOrderIndexByKind[file.kind] = Math.max(
       nextOrderIndexByKind[file.kind],
       file.order_index ?? -1,
@@ -676,6 +700,152 @@ export async function assignSongPartAssetAction(
   await revalidateSongPartsPath(client, accountId, data.songId);
 }
 
+export async function createSongPartNoteAction(
+  input: z.infer<typeof CreateSongPartNoteSchema>,
+) {
+  const data = CreateSongPartNoteSchema.parse(input);
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { data: song, error: songError } = await client
+    .from('songs')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('id', data.songId)
+    .single();
+
+  if (songError) {
+    throw songError;
+  }
+
+  if (data.scope === 'member') {
+    if (!data.memberId || !data.area) {
+      throw new Error('Choose a member and bucket for this note.');
+    }
+
+    const { error: memberError } = await client
+      .from('members')
+      .select('id')
+      .eq('account_id', accountId)
+      .eq('id', data.memberId)
+      .single();
+
+    if (memberError) {
+      throw memberError;
+    }
+  }
+
+  const { data: lastAsset, error: lastAssetError } = await client
+    .from('song_part_assets')
+    .select('order_index')
+    .eq('account_id', accountId)
+    .eq('song_id', song.id)
+    .order('order_index', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastAssetError) {
+    throw lastAssetError;
+  }
+
+  const { data: insertedAsset, error: insertError } = await client
+    .from('song_part_assets')
+    .insert({
+      account_id: accountId,
+      content: data.content as Json,
+      default_area:
+        data.scope === 'shared'
+          ? ('shared' satisfies SongPartAssignmentArea)
+          : null,
+      kind: 'rich_text_note' satisfies PartFileKind,
+      order_index: (lastAsset?.order_index ?? -1) + 1,
+      song_id: song.id,
+      title: data.title,
+    })
+    .select('id')
+    .single();
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  if (data.scope === 'member' && data.memberId && data.area) {
+    const { data: lastAssignment, error: lastAssignmentError } = await client
+      .from('song_part_assignments')
+      .select('order_index')
+      .eq('account_id', accountId)
+      .eq('song_id', song.id)
+      .eq('member_id', data.memberId)
+      .eq('area', data.area)
+      .order('order_index', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastAssignmentError) {
+      throw lastAssignmentError;
+    }
+
+    const { error: assignmentError } = await client
+      .from('song_part_assignments')
+      .insert({
+        account_id: accountId,
+        area: data.area as SongPartAssignmentArea,
+        asset_id: insertedAsset.id,
+        member_id: data.memberId,
+        order_index: (lastAssignment?.order_index ?? -1) + 1,
+        song_id: song.id,
+      });
+
+    if (assignmentError) {
+      throw assignmentError;
+    }
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, song.id);
+}
+
+export async function updateSongPartNoteAction(
+  input: z.infer<typeof UpdateSongPartNoteSchema>,
+) {
+  const data = UpdateSongPartNoteSchema.parse(input);
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { data: asset, error: assetError } = await client
+    .from('song_part_assets')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', data.assetId)
+    .eq('kind', 'rich_text_note')
+    .single();
+
+  if (assetError) {
+    throw assetError;
+  }
+
+  const { error: updateError } = await client
+    .from('song_part_assets')
+    .update({
+      content: data.content as Json,
+      title: data.title,
+    })
+    .eq('account_id', accountId)
+    .eq('id', asset.id)
+    .eq('kind', 'rich_text_note');
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, asset.song_id);
+}
+
 export async function shareSongPartAssetAction(
   input: z.infer<typeof ShareSongPartAssetSchema>,
 ) {
@@ -830,23 +1000,25 @@ export async function removeSongPartAssetAction(
     throw assetDeleteError;
   }
 
-  const { error: songFileDeleteError } = await client
-    .from('song_files')
-    .delete()
-    .eq('account_id', accountId)
-    .eq('song_id', asset.song_id)
-    .eq('storage_path', asset.storage_path);
+  if (asset.storage_path) {
+    const { error: songFileDeleteError } = await client
+      .from('song_files')
+      .delete()
+      .eq('account_id', accountId)
+      .eq('song_id', asset.song_id)
+      .eq('storage_path', asset.storage_path);
 
-  if (songFileDeleteError) {
-    throw songFileDeleteError;
-  }
+    if (songFileDeleteError) {
+      throw songFileDeleteError;
+    }
 
-  const { error: storageDeleteError } = await client.storage
-    .from('band_assets')
-    .remove([asset.storage_path]);
+    const { error: storageDeleteError } = await client.storage
+      .from('band_assets')
+      .remove([asset.storage_path]);
 
-  if (storageDeleteError) {
-    throw storageDeleteError;
+    if (storageDeleteError) {
+      throw storageDeleteError;
+    }
   }
 
   revalidateBand(accountSlug);
@@ -1352,6 +1524,19 @@ function validatePartSlot(type: PartType, slot: PartSlot) {
   if (type === 'other' && slot !== 'other') {
     throw new Error('Other parts must use the other slot.');
   }
+}
+
+function isRichTextDoc(value: unknown) {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'type' in value &&
+    (value as { type?: unknown }).type === 'doc'
+  );
+}
+
+function isUploadedPartFileKind(kind: PartFileKind): kind is UploadedPartFileKind {
+  return kind === 'chart_pdf' || kind === 'guide_audio';
 }
 
 function revalidateBand(accountSlug: string) {
