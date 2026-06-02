@@ -147,6 +147,30 @@ const UploadSongFileSchema = AccountSlugSchema.extend({
   description: optionalString,
 });
 
+const ClientUploadFileSchema = z.object({
+  name: z.string().min(1).max(255),
+  size: z.number().int().positive(),
+  type: z.string(),
+});
+
+const PreparePartFileUploadSchema = UploadPartFileSchema.extend({
+  file: ClientUploadFileSchema,
+});
+
+const FinalizePartFileUploadSchema = UploadPartFileSchema.extend({
+  file: ClientUploadFileSchema,
+  storagePath: z.string().min(1).max(1000),
+});
+
+const PrepareSongFileUploadSchema = UploadSongFileSchema.extend({
+  file: ClientUploadFileSchema,
+});
+
+const FinalizeSongFileUploadSchema = UploadSongFileSchema.extend({
+  file: ClientUploadFileSchema,
+  storagePath: z.string().min(1).max(1000),
+});
+
 const AssignSongPartAssetSchema = AccountSlugSchema.extend({
   songId: z.string().uuid(),
   assetId: z.string().uuid(),
@@ -454,6 +478,133 @@ export async function uploadPartFileAction(formData: FormData) {
   await revalidateSongPartsPath(client, accountId, part.song_id);
 }
 
+export async function preparePartFileUploadAction(
+  input: z.infer<typeof PreparePartFileUploadSchema>,
+) {
+  const data = PreparePartFileUploadSchema.parse(input);
+  const { accountId } = await assertCanManageBand(data.accountSlug);
+  const client = getSupabaseServerClient();
+
+  validateClientUploadSize(data.file);
+
+  const { data: part, error: partError } = await client
+    .from('parts')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('id', data.partId)
+    .single();
+
+  if (partError) {
+    throw partError;
+  }
+
+  const fileMetadata = getPartFileMetadata(data.file, data.kind);
+  const storagePath = [
+    accountId,
+    'parts',
+    part.id,
+    `${data.kind}-${crypto.randomUUID()}.${fileMetadata.extension}`,
+  ].join('/');
+
+  return {
+    contentType: fileMetadata.mimeType,
+    maxSizeBytes: MAX_PART_FILE_UPLOAD_BYTES,
+    storagePath,
+  };
+}
+
+export async function finalizePartFileUploadAction(
+  input: z.infer<typeof FinalizePartFileUploadSchema>,
+) {
+  const data = FinalizePartFileUploadSchema.parse(input);
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  validateClientUploadSize(data.file);
+
+  const { data: part, error: partError } = await client
+    .from('parts')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', data.partId)
+    .single();
+
+  if (partError) {
+    throw partError;
+  }
+
+  assertStoragePathPrefix(data.storagePath, [accountId, 'parts', part.id]);
+
+  const fileMetadata = getPartFileMetadata(data.file, data.kind);
+  const { data: existingFile, error: existingError } =
+    data.kind === 'chart_pdf'
+      ? await client
+          .from('part_files')
+          .select('id')
+          .eq('account_id', accountId)
+          .eq('part_id', part.id)
+          .eq('kind', data.kind)
+          .order('order_index', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+      : { data: null, error: null };
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  const { data: lastFile, error: lastFileError } = await client
+    .from('part_files')
+    .select('order_index')
+    .eq('account_id', accountId)
+    .eq('part_id', part.id)
+    .eq('kind', data.kind)
+    .order('order_index', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastFileError) {
+    throw lastFileError;
+  }
+
+  const fileRow = {
+    account_id: accountId,
+    part_id: part.id,
+    kind: data.kind as PartFileKind,
+    label: data.label ?? getDefaultPartFileTitle(data.file, fileMetadata),
+    storage_path: data.storagePath,
+    mime_type: fileMetadata.mimeType,
+    size_bytes: data.file.size,
+    order_index:
+      data.kind === 'guide_audio' ? (lastFile?.order_index ?? -1) + 1 : 1,
+  };
+
+  if (existingFile) {
+    const { error: updateError } = await client
+      .from('part_files')
+      .update(fileRow)
+      .eq('account_id', accountId)
+      .eq('id', existingFile.id);
+
+    if (updateError) {
+      throw updateError;
+    }
+  } else {
+    const { error: insertError } = await client
+      .from('part_files')
+      .insert(fileRow);
+
+    if (insertError) {
+      throw insertError;
+    }
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, part.song_id);
+}
+
 export async function uploadSongFileAction(formData: FormData) {
   const data = UploadSongFileSchema.parse({
     accountSlug: formData.get('accountSlug'),
@@ -600,6 +751,126 @@ export async function uploadSongFileAction(formData: FormData) {
     if (assetInsertError) {
       throw assetInsertError;
     }
+  }
+
+  revalidateBand(accountSlug);
+  revalidatePath(`/band/parts/${song.slug}`);
+  revalidatePath(`/band/parts/${song.slug}/parts`);
+}
+
+export async function prepareSongFileUploadAction(
+  input: z.infer<typeof PrepareSongFileUploadSchema>,
+) {
+  const data = PrepareSongFileUploadSchema.parse(input);
+  const { accountId } = await assertCanManageBand(data.accountSlug);
+  const client = getSupabaseServerClient();
+
+  validateClientUploadSize(data.file);
+
+  const { data: song, error: songError } = await client
+    .from('songs')
+    .select('id')
+    .eq('account_id', accountId)
+    .eq('id', data.songId)
+    .single();
+
+  if (songError) {
+    throw songError;
+  }
+
+  const fileMetadata = getUploadedSongFileMetadata(data.file);
+  const storagePath = [
+    accountId,
+    'songs',
+    song.id,
+    `${fileMetadata.kind}-${crypto.randomUUID()}.${fileMetadata.extension}`,
+  ].join('/');
+
+  return {
+    contentType: fileMetadata.mimeType,
+    maxSizeBytes: MAX_PART_FILE_UPLOAD_BYTES,
+    storagePath,
+  };
+}
+
+export async function finalizeSongFileUploadAction(
+  input: z.infer<typeof FinalizeSongFileUploadSchema>,
+) {
+  const data = FinalizeSongFileUploadSchema.parse(input);
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  validateClientUploadSize(data.file);
+
+  const { data: song, error: songError } = await client
+    .from('songs')
+    .select('id, slug')
+    .eq('account_id', accountId)
+    .eq('id', data.songId)
+    .single();
+
+  if (songError) {
+    throw songError;
+  }
+
+  assertStoragePathPrefix(data.storagePath, [accountId, 'songs', song.id]);
+
+  const fileMetadata = getUploadedSongFileMetadata(data.file);
+  const { data: lastFile, error: lastFileError } = await client
+    .from('song_files')
+    .select('order_index')
+    .eq('account_id', accountId)
+    .eq('song_id', song.id)
+    .eq('kind', fileMetadata.kind)
+    .order('order_index', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastFileError) {
+    throw lastFileError;
+  }
+
+  const title =
+    data.label ?? getDefaultPartFileTitle(data.file, fileMetadata);
+  const orderIndex = (lastFile?.order_index ?? -1) + 1;
+
+  const { error: insertError } = await client.from('song_files').insert({
+    account_id: accountId,
+    song_id: song.id,
+    kind: fileMetadata.kind,
+    label: title,
+    storage_path: data.storagePath,
+    mime_type: fileMetadata.mimeType,
+    size_bytes: data.file.size,
+    order_index: orderIndex,
+  });
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  const { error: assetInsertError } = await client
+    .from('song_part_assets')
+    .insert({
+      account_id: accountId,
+      song_id: song.id,
+      kind: fileMetadata.kind,
+      title,
+      description: data.description,
+      storage_path: data.storagePath,
+      mime_type: fileMetadata.mimeType,
+      size_bytes: data.file.size,
+      default_area:
+        fileMetadata.kind === 'guide_audio'
+          ? ('vocal' satisfies SongPartAssignmentArea)
+          : null,
+      order_index: orderIndex,
+    });
+
+  if (assetInsertError) {
+    throw assetInsertError;
   }
 
   revalidateBand(accountSlug);
@@ -1539,6 +1810,22 @@ function isUploadedPartFileKind(kind: PartFileKind): kind is UploadedPartFileKin
   return kind === 'chart_pdf' || kind === 'guide_audio';
 }
 
+function validateClientUploadSize(file: { size: number }) {
+  if (file.size > MAX_PART_FILE_UPLOAD_BYTES) {
+    throw new Error(
+      `Files must be ${MAX_PART_FILE_UPLOAD_LABEL} or less.`,
+    );
+  }
+}
+
+function assertStoragePathPrefix(storagePath: string, segments: string[]) {
+  const prefix = `${segments.join('/')}/`;
+
+  if (!storagePath.startsWith(prefix)) {
+    throw new Error('Uploaded file path does not match the target record.');
+  }
+}
+
 function revalidateBand(accountSlug: string) {
   revalidatePath(`/home/${accountSlug}/band`);
   revalidatePath(`/home/${accountSlug}/band/members`);
@@ -1579,7 +1866,7 @@ function slugifyTag(display: string) {
   );
 }
 
-function getUploadedSongFileMetadata(file: File) {
+function getUploadedSongFileMetadata(file: { name: string; type: string }) {
   const fileName = file.name.toLowerCase();
 
   if (
@@ -1603,7 +1890,10 @@ function getUploadedSongFileMetadata(file: File) {
   throw new Error('Song files must be MP3 or PDF files.');
 }
 
-function getPartFileMetadata(file: File, kind: PartFileKind) {
+function getPartFileMetadata(
+  file: { name: string; type: string },
+  kind: PartFileKind,
+) {
   const fileName = file.name.toLowerCase();
 
   if (
@@ -1638,7 +1928,7 @@ function getPartFileMetadata(file: File, kind: PartFileKind) {
 }
 
 function getDefaultPartFileTitle(
-  file: File,
+  file: { name: string },
   metadata: ReturnType<typeof getPartFileMetadata>,
 ) {
   const title = file.name.replace(/\.[^/.]+$/, '').trim();
