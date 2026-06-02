@@ -48,7 +48,8 @@ export default async function SongPartsPage({ params }: SongPartsPageProps) {
     (member) => member.status === 'active' && member.member_type === 'performer',
   );
   const assets = data.songPartAssetsBySongId.get(song.id) ?? [];
-  const assignments = data.songPartAssignmentsBySongId.get(song.id) ?? [];
+  const assignments = (data.songPartAssignmentsBySongId.get(song.id) ?? [])
+    .filter(isIndividualSongPartAssignment);
   const signedAssetUrlById = await getSignedAssetUrlById(assets);
   const signedAssets = assets.map((asset) => ({
     ...asset,
@@ -89,6 +90,7 @@ export default async function SongPartsPage({ params }: SongPartsPageProps) {
               assets={signedAssets}
               members={members}
               songId={song.id}
+              songTitle={song.title}
             />
           </CardContent>
         </Card>
@@ -127,4 +129,12 @@ async function getSignedAssetUrlById<
   );
 
   return new Map(entries);
+}
+
+function isIndividualSongPartAssignment<
+  Assignment extends { area: string },
+>(
+  assignment: Assignment,
+): assignment is Assignment & { area: 'instrumental' | 'vocal' } {
+  return assignment.area === 'instrumental' || assignment.area === 'vocal';
 }

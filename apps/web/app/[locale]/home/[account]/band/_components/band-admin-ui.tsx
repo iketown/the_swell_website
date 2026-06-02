@@ -1169,7 +1169,12 @@ function DeleteButton({
     <form action={action}>
       <input type="hidden" name="accountSlug" value={accountSlug} />
       <input type="hidden" name="id" value={id} />
-      <Button type="submit" size="icon" variant="ghost">
+      <Button
+        data-swell-tone="danger"
+        type="submit"
+        size="icon"
+        variant="ghost"
+      >
         <Trash2 className="size-4" />
         <span className="sr-only">Delete</span>
       </Button>

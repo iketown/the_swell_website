@@ -1926,7 +1926,7 @@ export type Database = {
       notification_channel: "in_app" | "email"
       notification_type: "info" | "warning" | "error"
       part_file_kind: "guide_audio" | "chart_pdf"
-      song_part_assignment_area: "vocal" | "instrumental"
+      song_part_assignment_area: "vocal" | "instrumental" | "shared"
       part_slot:
         | "vocal_1"
         | "vocal_2"
@@ -2660,7 +2660,7 @@ export const Constants = {
       notification_channel: ["in_app", "email"],
       notification_type: ["info", "warning", "error"],
       part_file_kind: ["guide_audio", "chart_pdf"],
-      song_part_assignment_area: ["vocal", "instrumental"],
+      song_part_assignment_area: ["vocal", "instrumental", "shared"],
       part_slot: [
         "vocal_1",
         "vocal_2",

@@ -144,13 +144,13 @@ export function MembersAdmin({
                   <TableCell>
                     <div className="flex justify-end gap-1">
                       <Button
+                        aria-label={`Edit ${member.display_name}`}
                         type="button"
-                        size="sm"
-                        variant="ghost"
+                        size="icon"
+                        variant="outline"
                         onClick={() => setEditor({ mode: 'edit', member })}
                       >
-                        <Pencil data-icon="inline-start" />
-                        Edit
+                        <Pencil />
                       </Button>
 
                       <DeleteButton
@@ -308,9 +308,14 @@ function DeleteButton({
     <AlertDialog>
       <AlertDialogTrigger
         render={
-          <Button type="button" size="sm" variant="ghost">
-            <Trash2 data-icon="inline-start" />
-            Delete
+          <Button
+            aria-label={`Delete ${memberName}`}
+            data-swell-tone="danger"
+            type="button"
+            size="icon"
+            variant="outline"
+          >
+            <Trash2 />
           </Button>
         }
       />
@@ -331,7 +336,11 @@ function DeleteButton({
           <form action={deleteBandMemberAction}>
             <input type="hidden" name="accountSlug" value={accountSlug} />
             <input type="hidden" name="id" value={id} />
-            <AlertDialogAction type="submit" variant="destructive">
+            <AlertDialogAction
+              data-swell-tone="danger"
+              type="submit"
+              variant="destructive"
+            >
               Delete
             </AlertDialogAction>
           </form>

@@ -9,6 +9,7 @@ import {
   GripVertical,
   Settings2,
   SlidersHorizontal,
+  Trash2,
   X,
 } from 'lucide-react';
 
@@ -31,16 +32,21 @@ import {
   TableHeader,
   TableRow,
 } from '@kit/ui/table';
+import { toast } from '@kit/ui/sonner';
 import { cn } from '@kit/ui/utils';
 
 import {
   assignSongPartAssetAction,
+  removeSongPartAssetAction,
   removeSongPartAssignmentAction,
+  shareSongPartAssetAction,
+  unshareSongPartAssetAction,
 } from '~/home/[account]/band/_lib/server/band-admin.actions';
 
 import { PartFileBadge } from '../../../_components/part-file-badge';
 
 type AssignmentArea = 'vocal' | 'instrumental';
+type AssetDefaultArea = AssignmentArea | 'shared';
 type AssetKind = 'guide_audio' | 'chart_pdf';
 
 type Member = {
@@ -49,7 +55,7 @@ type Member = {
 };
 
 type SongPartAsset = {
-  default_area: AssignmentArea | null;
+  default_area: AssetDefaultArea | null;
   description: string | null;
   id: string;
   kind: AssetKind;
@@ -64,7 +70,14 @@ type SongPartAssignment = {
   member_id: string;
 };
 
+type PendingAssetRemoval = {
+  asset: SongPartAsset;
+  memberNames: string[];
+};
+
 const dragDataType = 'application/x-swell-song-part-asset-id';
+const assignmentDragDataType = 'application/x-swell-song-part-assignment-id';
+const sharedDragDataType = 'application/x-swell-shared-song-part-asset-id';
 const memberDragDataType = 'application/x-swell-member-id';
 const memberOrderStorageKey = 'swell-band:member-order';
 const areas = [
@@ -78,17 +91,24 @@ export function SongPartAssignmentGrid({
   assets,
   members,
   songId,
+  songTitle,
 }: {
   accountSlug: string;
   assignments: SongPartAssignment[];
   assets: SongPartAsset[];
   members: Member[];
   songId: string;
+  songTitle: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [hoveredAssetId, setHoveredAssetId] = useState<string | null>(null);
+  const [isTrashOver, setIsTrashOver] = useState(false);
+  const [pendingSharedAssignmentAsset, setPendingSharedAssignmentAsset] =
+    useState<SongPartAsset | null>(null);
+  const [pendingAssetRemoval, setPendingAssetRemoval] =
+    useState<PendingAssetRemoval | null>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [memberOrderIds, setMemberOrderIds] = useState<string[]>(() =>
     members.map((member) => member.id),
@@ -223,6 +243,25 @@ export function SongPartAssignmentGrid({
 
     return counts;
   }, [assignments]);
+  const assignmentMemberNamesByAssetId = useMemo(() => {
+    const namesByAssetId = new Map<string, string[]>();
+
+    for (const assignment of assignments) {
+      const member = memberById.get(assignment.member_id);
+
+      if (!member) {
+        continue;
+      }
+
+      const existing = namesByAssetId.get(assignment.asset_id) ?? [];
+      namesByAssetId.set(assignment.asset_id, [
+        ...existing,
+        member.display_name,
+      ]);
+    }
+
+    return namesByAssetId;
+  }, [assignments, memberById]);
 
   const assignmentsByCell = useMemo(() => {
     const grouped = new Map<string, SongPartAssignment[]>();
@@ -239,11 +278,16 @@ export function SongPartAssignmentGrid({
   const visibleMembers = orderedMembers.filter((member) =>
     visibleMemberIds.includes(member.id),
   );
+  const sharedAssets = assets.filter((asset) => asset.default_area === 'shared');
   const assignedAssets = assets.filter(
-    (asset) => (assignmentCountByAssetId.get(asset.id) ?? 0) > 0,
+    (asset) =>
+      asset.default_area === 'shared' ||
+      (assignmentCountByAssetId.get(asset.id) ?? 0) > 0,
   );
   const unassignedAssets = assets.filter(
-    (asset) => (assignmentCountByAssetId.get(asset.id) ?? 0) === 0,
+    (asset) =>
+      asset.default_area !== 'shared' &&
+      (assignmentCountByAssetId.get(asset.id) ?? 0) === 0,
   );
 
   function toggleMember(memberId: string) {
@@ -297,6 +341,13 @@ export function SongPartAssignmentGrid({
     assetId: string;
     memberId: string;
   }) {
+    const asset = assetById.get(assetId);
+
+    if (asset?.default_area === 'shared') {
+      setPendingSharedAssignmentAsset(asset);
+      return;
+    }
+
     setError(null);
     startTransition(() => {
       void assignSongPartAssetAction({
@@ -314,6 +365,27 @@ export function SongPartAssignmentGrid({
             reason instanceof Error
               ? reason.message
               : 'Could not assign that file.',
+          );
+        });
+    });
+  }
+
+  function shareAsset(assetId: string) {
+    setError(null);
+    startTransition(() => {
+      void shareSongPartAssetAction({
+        accountSlug,
+        assetId,
+        songId,
+      })
+        .then(() => {
+          router.refresh();
+        })
+        .catch((reason: unknown) => {
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : 'Could not assign that file to ALL.',
           );
         });
     });
@@ -339,16 +411,91 @@ export function SongPartAssignmentGrid({
     });
   }
 
+  function unshareAsset(assetId: string) {
+    setError(null);
+    startTransition(() => {
+      void unshareSongPartAssetAction({
+        accountSlug,
+        assetId,
+        songId,
+      })
+        .then(() => {
+          router.refresh();
+        })
+        .catch((reason: unknown) => {
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : 'Could not move that file back to unassigned.',
+          );
+        });
+    });
+  }
+
+  function removeAsset(assetId: string) {
+    const assetTitle = assetById.get(assetId)?.title ?? 'File';
+
+    setError(null);
+    startTransition(() => {
+      void removeSongPartAssetAction({
+        accountSlug,
+        assetId,
+      })
+        .then(() => {
+          setPendingAssetRemoval(null);
+          toast.success(`'${assetTitle}' has been removed from '${songTitle}'`);
+          router.refresh();
+        })
+        .catch((reason: unknown) => {
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : 'Could not remove that file.',
+          );
+        });
+    });
+  }
+
+  function handleTrashDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsTrashOver(false);
+
+    const sharedAssetId = event.dataTransfer.getData(sharedDragDataType);
+
+    if (sharedAssetId) {
+      unshareAsset(sharedAssetId);
+      return;
+    }
+
+    const assignmentId = event.dataTransfer.getData(assignmentDragDataType);
+
+    if (assignmentId) {
+      removeAssignment(assignmentId);
+      return;
+    }
+
+    const assetId =
+      event.dataTransfer.getData(dragDataType) ||
+      event.dataTransfer.getData('text/plain');
+    const asset = assetById.get(assetId);
+
+    if (!asset) {
+      return;
+    }
+
+    const memberNames = assignmentMemberNamesByAssetId.get(asset.id) ?? [];
+
+    if (memberNames.length > 0) {
+      setPendingAssetRemoval({ asset, memberNames });
+      return;
+    }
+
+    removeAsset(asset.id);
+  }
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold">Assignment grid</h3>
-          <p className="text-muted-foreground text-sm">
-            Member-by-member vocal and instrumental files.
-          </p>
-        </div>
-
+      <div className="flex justify-end">
         <Dialog>
           <DialogTrigger render={<Button type="button" variant="outline" />}>
             <Settings2 data-icon="inline-start" />
@@ -399,16 +546,33 @@ export function SongPartAssignmentGrid({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-48">Member</TableHead>
+              <TableHead className="w-px pr-8 whitespace-nowrap">
+                Member
+              </TableHead>
               <TableHead>Vocal</TableHead>
               <TableHead>Instrumental</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
+            <TableRow>
+              <TableCell className="w-px pr-8 align-top font-medium whitespace-nowrap">
+                ALL
+              </TableCell>
+              <TableCell className="align-top" colSpan={2}>
+                <SharedDropTarget
+                  assets={sharedAssets}
+                  hoveredAssetId={hoveredAssetId}
+                  isPending={isPending}
+                  onHoverAsset={setHoveredAssetId}
+                  onShare={shareAsset}
+                />
+              </TableCell>
+            </TableRow>
+
             {visibleMembers.length > 0 ? (
               visibleMembers.map((member) => (
                 <TableRow key={member.id}>
-                  <TableCell className="align-top font-medium">
+                  <TableCell className="w-px pr-8 align-top font-medium whitespace-nowrap">
                     {member.display_name}
                   </TableCell>
                   {areas.map(([area]) => (
@@ -450,7 +614,7 @@ export function SongPartAssignmentGrid({
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem]">
         <PartPool
           assets={unassignedAssets}
           assignmentCountByAssetId={assignmentCountByAssetId}
@@ -467,7 +631,81 @@ export function SongPartAssignmentGrid({
           title="Assigned"
           tone="assigned"
         />
+        <TrashDropZone
+          isOver={isTrashOver}
+          onDragLeave={() => setIsTrashOver(false)}
+          onDragOver={(event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            setIsTrashOver(true);
+          }}
+          onDrop={handleTrashDrop}
+        />
       </div>
+
+      <Dialog
+        open={Boolean(pendingAssetRemoval)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingAssetRemoval(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove file?</DialogTitle>
+            <DialogDescription>
+              {pendingAssetRemoval
+                ? `${pendingAssetRemoval.asset.title} will be removed from parts ${formatMemberList(
+                    pendingAssetRemoval.memberNames,
+                  )}.`
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button type="button" variant="outline" />}>
+              Cancel
+            </DialogClose>
+            <Button
+              data-swell-tone="danger"
+              disabled={isPending}
+              onClick={() => {
+                if (pendingAssetRemoval) {
+                  removeAsset(pendingAssetRemoval.asset.id);
+                }
+              }}
+              type="button"
+              variant="outline"
+            >
+              <Trash2 data-icon="inline-start" />
+              Remove file
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingSharedAssignmentAsset)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingSharedAssignmentAsset(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Already assigned to ALL</DialogTitle>
+            <DialogDescription>
+              {pendingSharedAssignmentAsset
+                ? `${pendingSharedAssignmentAsset.title} is already assigned to ALL.`
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button type="button" />}>OK</DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -545,6 +783,66 @@ function SortableMemberRow({
   );
 }
 
+function SharedDropTarget({
+  assets,
+  hoveredAssetId,
+  isPending,
+  onHoverAsset,
+  onShare,
+}: {
+  assets: SongPartAsset[];
+  hoveredAssetId: string | null;
+  isPending: boolean;
+  onHoverAsset: (assetId: string | null) => void;
+  onShare: (assetId: string) => void;
+}) {
+  const [isOver, setIsOver] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        'border-input bg-secondary/20 flex min-h-14 flex-wrap items-center gap-1.5 rounded-lg border border-dashed px-2 py-1.5 transition-colors',
+        isOver && 'border-primary bg-primary/5',
+      )}
+      onDragLeave={() => setIsOver(false)}
+      onDragOver={(event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        setIsOver(true);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setIsOver(false);
+        const assetId =
+          event.dataTransfer.getData(dragDataType) ||
+          event.dataTransfer.getData('text/plain');
+
+        if (!assetId) {
+          return;
+        }
+
+        onShare(assetId);
+      }}
+    >
+      {assets.length > 0 ? (
+        assets.map((asset) => (
+          <SharedBadge
+            asset={asset}
+            highlighted={hoveredAssetId === asset.id}
+            isPending={isPending}
+            key={asset.id}
+            onHover={onHoverAsset}
+          />
+        ))
+      ) : (
+        <span className="text-muted-foreground text-sm">
+          Drop files here for every member.
+        </span>
+      )}
+    </div>
+  );
+}
+
 function AssignmentDropTarget({
   area,
   assetById,
@@ -573,7 +871,7 @@ function AssignmentDropTarget({
   return (
     <div
       className={cn(
-        'border-input bg-muted/20 flex min-h-24 flex-wrap content-start gap-2 rounded-lg border border-dashed p-2 transition-colors',
+        'border-input bg-muted/20 flex min-h-14 flex-wrap items-center gap-1.5 rounded-lg border border-dashed px-2 py-1.5 transition-colors',
         isOver && 'border-primary bg-primary/5',
       )}
       onDragLeave={() => setIsOver(false)}
@@ -606,6 +904,7 @@ function AssignmentDropTarget({
         return (
           <AssignedBadge
             asset={asset}
+            assignmentId={assignment.id}
             highlighted={hoveredAssetId === asset.id}
             isPending={isPending}
             key={assignment.id}
@@ -654,6 +953,36 @@ function PartPool({
   );
 }
 
+function TrashDropZone({
+  isOver,
+  onDragLeave,
+  onDragOver,
+  onDrop,
+}: {
+  isOver: boolean;
+  onDragLeave: () => void;
+  onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h4 className="text-sm font-semibold">Trash</h4>
+      <div
+        className={cn(
+          'border-input text-muted-foreground flex min-h-28 flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 p-3 text-center text-xs transition-colors',
+          isOver && 'border-destructive bg-destructive/10 text-destructive',
+        )}
+        onDragLeave={onDragLeave}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        <Trash2 className="size-6" />
+        <span>Drop to remove</span>
+      </div>
+    </section>
+  );
+}
+
 function DraggablePoolBadge({
   asset,
   count,
@@ -674,7 +1003,7 @@ function DraggablePoolBadge({
       label={asset.title}
       labelClassName="max-w-52"
       onDragStart={(event) => {
-        event.dataTransfer.effectAllowed = 'copy';
+        event.dataTransfer.effectAllowed = 'copyMove';
         event.dataTransfer.setData(dragDataType, asset.id);
         event.dataTransfer.setData('text/plain', asset.id);
       }}
@@ -690,11 +1019,13 @@ function DraggablePoolBadge({
 
 function AssignedBadge({
   asset,
+  assignmentId,
   highlighted,
   isPending,
   onRemove,
 }: {
   asset: SongPartAsset;
+  assignmentId: string;
   highlighted: boolean;
   isPending: boolean;
   onRemove: () => void;
@@ -707,7 +1038,8 @@ function AssignedBadge({
       label={asset.title}
       labelClassName="max-w-44"
       onDragStart={(event) => {
-        event.dataTransfer.effectAllowed = 'copy';
+        event.dataTransfer.effectAllowed = 'copyMove';
+        event.dataTransfer.setData(assignmentDragDataType, assignmentId);
         event.dataTransfer.setData(dragDataType, asset.id);
         event.dataTransfer.setData('text/plain', asset.id);
       }}
@@ -729,8 +1061,52 @@ function AssignedBadge({
   );
 }
 
+function SharedBadge({
+  asset,
+  highlighted,
+  isPending,
+  onHover,
+}: {
+  asset: SongPartAsset;
+  highlighted: boolean;
+  isPending: boolean;
+  onHover: (assetId: string | null) => void;
+}) {
+  return (
+    <PartFileBadge
+      className="cursor-grab transition active:cursor-grabbing"
+      draggable={!isPending}
+      kind={asset.kind}
+      label={asset.title}
+      labelClassName="max-w-52"
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = 'copyMove';
+        event.dataTransfer.setData(sharedDragDataType, asset.id);
+        event.dataTransfer.setData(dragDataType, asset.id);
+        event.dataTransfer.setData('text/plain', asset.id);
+      }}
+      onMouseEnter={() => onHover(asset.id)}
+      onMouseLeave={() => onHover(null)}
+      previewUrl={asset.signedUrl}
+      tone={highlighted ? 'highlighted' : 'assigned'}
+      tooltip={asset.description ?? asset.title}
+      variant="outline"
+    />
+  );
+}
+
 function getCellKey(memberId: string, area: AssignmentArea) {
   return `${memberId}:${area}`;
+}
+
+function formatMemberList(memberNames: string[]) {
+  if (memberNames.length <= 2) {
+    return memberNames.join(' and ');
+  }
+
+  return `${memberNames.slice(0, -1).join(', ')} and ${
+    memberNames[memberNames.length - 1]
+  }`;
 }
 
 function mergeKnownMemberIds(

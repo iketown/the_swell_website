@@ -67,7 +67,8 @@ create type public.part_file_kind as enum(
 
 create type public.song_part_assignment_area as enum(
   'vocal',
-  'instrumental'
+  'instrumental',
+  'shared'
 );
 
 create

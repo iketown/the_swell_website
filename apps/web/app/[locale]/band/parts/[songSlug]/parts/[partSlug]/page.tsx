@@ -357,10 +357,11 @@ function RemovePartFileReferenceForm({
       <input type="hidden" name="id" value={fileId} />
       <Button
         aria-label={`Remove ${title} from this part`}
+        data-swell-tone="danger"
         type="submit"
         size="icon"
         variant="ghost"
-        className="text-muted-foreground hover:text-destructive size-8"
+        className="size-8"
       >
         <Trash2 />
       </Button>

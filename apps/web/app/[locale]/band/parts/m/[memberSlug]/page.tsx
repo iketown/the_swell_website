@@ -58,9 +58,19 @@ export default async function MemberPartsPage({
   const assetById = new Map(
     data.songPartAssets.map((asset) => [asset.id, asset]),
   );
-  const assignments = data.songPartAssignments.filter(
-    (assignment) => assignment.member_id === member.id,
+  const memberAssignments = data.songPartAssignments.filter(
+    (assignment) =>
+      assignment.member_id === member.id &&
+      isIndividualSongPartAssignment(assignment),
   );
+  const sharedAssignments = data.songPartAssets
+    .filter((asset) => asset.default_area === 'shared')
+    .map((asset) => ({
+      area: 'shared' as const,
+      asset_id: asset.id,
+      song_id: asset.song_id,
+    }));
+  const assignments = [...sharedAssignments, ...memberAssignments];
   const rows = [...groupAssignmentsBySong(assignments, assetById, data.songById)]
     .sort((a, b) => a.song.title.localeCompare(b.song.title));
   const signedAssetUrlById = await getSignedAssetUrlById(
@@ -155,7 +165,7 @@ export default async function MemberPartsPage({
 
 function groupAssignmentsBySong<
   Assignment extends {
-    area: 'vocal' | 'instrumental';
+    area: 'shared' | 'vocal' | 'instrumental';
     asset_id: string;
     song_id: string;
   },
@@ -221,6 +231,14 @@ function memberSlug(displayName: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function isIndividualSongPartAssignment<
+  Assignment extends { area: string },
+>(
+  assignment: Assignment,
+): assignment is Assignment & { area: 'instrumental' | 'vocal' } {
+  return assignment.area === 'instrumental' || assignment.area === 'vocal';
 }
 
 async function getSignedAssetUrlById<

@@ -1,4 +1,4 @@
-import { Inter as SansFont } from 'next/font/google';
+import { Caprasimo as DisplayFont, Inter as SansFont } from 'next/font/google';
 
 import { cn } from '@kit/ui/utils';
 
@@ -21,8 +21,20 @@ const sans = SansFont({
  */
 const heading = sans;
 
+/**
+ * @display
+ * @description Retro display font for The Swell card titles.
+ */
+const display = DisplayFont({
+  subsets: ['latin'],
+  variable: '--font-swell-display',
+  fallback: ['Cooper Black', 'Bookman Old Style', 'Georgia', 'serif'],
+  preload: true,
+  weight: ['400'],
+});
+
 // we export these fonts into the root layout
-export { sans, heading };
+export { sans, heading, display };
 
 /**
  * @name getFontsClassName
@@ -33,7 +45,9 @@ export function getFontsClassName(theme?: string) {
   const dark = theme === 'dark';
   const light = !dark;
 
-  const font = [sans.variable, heading.variable].reduce<string[]>(
+  const font = [sans.variable, heading.variable, display.variable].reduce<
+    string[]
+  >(
     (acc, curr) => {
       if (acc.includes(curr)) return acc;
 

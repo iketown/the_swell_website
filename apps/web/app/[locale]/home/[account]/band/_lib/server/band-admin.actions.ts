@@ -153,8 +153,22 @@ const AssignSongPartAssetSchema = AccountSlugSchema.extend({
   area: z.enum(['vocal', 'instrumental']),
 });
 
+const ShareSongPartAssetSchema = AccountSlugSchema.extend({
+  songId: z.string().uuid(),
+  assetId: z.string().uuid(),
+});
+
+const UnshareSongPartAssetSchema = AccountSlugSchema.extend({
+  songId: z.string().uuid(),
+  assetId: z.string().uuid(),
+});
+
 const RemoveSongPartAssignmentSchema = AccountSlugSchema.extend({
   assignmentId: z.string().uuid(),
+});
+
+const RemoveSongPartAssetSchema = AccountSlugSchema.extend({
+  assetId: z.string().uuid(),
 });
 
 const AttachExistingPartFileSchema = AccountSlugSchema.extend({
@@ -580,7 +594,7 @@ export async function assignSongPartAssetAction(
 
   const { data: asset, error: assetError } = await client
     .from('song_part_assets')
-    .select('id, song_id')
+    .select('id, song_id, title, default_area')
     .eq('account_id', accountId)
     .eq('id', data.assetId)
     .single();
@@ -591,6 +605,10 @@ export async function assignSongPartAssetAction(
 
   if (asset.song_id !== data.songId) {
     throw new Error('Part assets can only be assigned within their song.');
+  }
+
+  if (asset.default_area === 'shared') {
+    throw new Error(`${asset.title} is already assigned to ALL.`);
   }
 
   const { error: memberError } = await client
@@ -658,6 +676,96 @@ export async function assignSongPartAssetAction(
   await revalidateSongPartsPath(client, accountId, data.songId);
 }
 
+export async function shareSongPartAssetAction(
+  input: z.infer<typeof ShareSongPartAssetSchema>,
+) {
+  const data = ShareSongPartAssetSchema.parse(input);
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { data: asset, error: assetError } = await client
+    .from('song_part_assets')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', data.assetId)
+    .single();
+
+  if (assetError) {
+    throw assetError;
+  }
+
+  if (asset.song_id !== data.songId) {
+    throw new Error('Part assets can only be shared within their song.');
+  }
+
+  const { error: assignmentDeleteError } = await client
+    .from('song_part_assignments')
+    .delete()
+    .eq('account_id', accountId)
+    .eq('asset_id', asset.id);
+
+  if (assignmentDeleteError) {
+    throw assignmentDeleteError;
+  }
+
+  const { error: updateError } = await client
+    .from('song_part_assets')
+    .update({
+      default_area: 'shared' satisfies SongPartAssignmentArea,
+    })
+    .eq('account_id', accountId)
+    .eq('id', asset.id);
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, asset.song_id);
+}
+
+export async function unshareSongPartAssetAction(
+  input: z.infer<typeof UnshareSongPartAssetSchema>,
+) {
+  const data = UnshareSongPartAssetSchema.parse(input);
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { data: asset, error: assetError } = await client
+    .from('song_part_assets')
+    .select('id, song_id')
+    .eq('account_id', accountId)
+    .eq('id', data.assetId)
+    .single();
+
+  if (assetError) {
+    throw assetError;
+  }
+
+  if (asset.song_id !== data.songId) {
+    throw new Error('Part assets can only be unassigned within their song.');
+  }
+
+  const { error: updateError } = await client
+    .from('song_part_assets')
+    .update({
+      default_area: null,
+    })
+    .eq('account_id', accountId)
+    .eq('id', asset.id);
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, asset.song_id);
+}
+
 export async function removeSongPartAssignmentAction(
   input: z.infer<typeof RemoveSongPartAssignmentSchema>,
 ) {
@@ -690,6 +798,59 @@ export async function removeSongPartAssignmentAction(
 
   revalidateBand(accountSlug);
   await revalidateSongPartsPath(client, accountId, assignment.song_id);
+}
+
+export async function removeSongPartAssetAction(
+  input: z.infer<typeof RemoveSongPartAssetSchema>,
+) {
+  const data = RemoveSongPartAssetSchema.parse(input);
+  const { accountId, accountSlug } = await assertCanManageBand(
+    data.accountSlug,
+  );
+  const client = getSupabaseServerClient();
+
+  const { data: asset, error: assetError } = await client
+    .from('song_part_assets')
+    .select('id, song_id, storage_path')
+    .eq('account_id', accountId)
+    .eq('id', data.assetId)
+    .single();
+
+  if (assetError) {
+    throw assetError;
+  }
+
+  const { error: assetDeleteError } = await client
+    .from('song_part_assets')
+    .delete()
+    .eq('account_id', accountId)
+    .eq('id', asset.id);
+
+  if (assetDeleteError) {
+    throw assetDeleteError;
+  }
+
+  const { error: songFileDeleteError } = await client
+    .from('song_files')
+    .delete()
+    .eq('account_id', accountId)
+    .eq('song_id', asset.song_id)
+    .eq('storage_path', asset.storage_path);
+
+  if (songFileDeleteError) {
+    throw songFileDeleteError;
+  }
+
+  const { error: storageDeleteError } = await client.storage
+    .from('band_assets')
+    .remove([asset.storage_path]);
+
+  if (storageDeleteError) {
+    throw storageDeleteError;
+  }
+
+  revalidateBand(accountSlug);
+  await revalidateSongPartsPath(client, accountId, asset.song_id);
 }
 
 export async function attachSongInventoryFileToPartAction(

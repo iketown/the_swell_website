@@ -3,7 +3,7 @@
 import { PartFileBadge } from '../../../_components/part-file-badge';
 
 type MemberPartFile = {
-  area: 'instrumental' | 'vocal';
+  area: 'instrumental' | 'shared' | 'vocal';
   description: string | null;
   id: string;
   kind: 'chart_pdf' | 'guide_audio';
@@ -32,6 +32,10 @@ export function MemberPartFileBadges({ files }: { files: MemberPartFile[] }) {
   );
 }
 
-function formatArea(area: 'instrumental' | 'vocal') {
+function formatArea(area: 'instrumental' | 'shared' | 'vocal') {
+  if (area === 'shared') {
+    return 'ALL';
+  }
+
   return area === 'instrumental' ? 'Instrumental' : 'Vocal';
 }
