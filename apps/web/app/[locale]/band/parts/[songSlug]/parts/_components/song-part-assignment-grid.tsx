@@ -513,6 +513,24 @@ export function SongPartAssignmentGrid({
     });
   }
 
+  function openNoteDialog({
+    area = 'vocal',
+    memberId = members[0]?.id ?? '',
+    scope,
+  }: {
+    area?: AssignmentArea;
+    memberId?: string;
+    scope: 'member' | 'shared';
+  }) {
+    setNoteScope(scope);
+    setNoteMemberId(memberId);
+    setNoteArea(area);
+    setNoteTitle('Performance note');
+    setNoteContent(emptyNoteContent);
+    latestNoteContentRef.current = emptyNoteContent;
+    setNoteDialogOpen(true);
+  }
+
   function handleTrashDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setIsTrashOver(false);
@@ -555,10 +573,6 @@ export function SongPartAssignmentGrid({
       <div className="flex flex-wrap justify-end gap-2">
         {canManageBand ? (
           <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
-            <DialogTrigger render={<Button type="button" variant="outline" />}>
-              <Plus data-icon="inline-start" />
-              Add note
-            </DialogTrigger>
             <DialogContent className="sm:max-w-3xl">
               <DialogHeader>
                 <DialogTitle>Add text note</DialogTitle>
@@ -596,40 +610,44 @@ export function SongPartAssignmentGrid({
                     </select>
                   </label>
 
-                  <label className="grid gap-1.5 text-sm">
-                    <span className="font-medium">Member</span>
-                    <select
-                      className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 rounded-lg border px-3 outline-none disabled:opacity-50 focus-visible:ring-3"
-                      disabled={noteScope !== 'member'}
-                      onChange={(event) => setNoteMemberId(event.target.value)}
-                      value={noteMemberId}
-                    >
-                      {members.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.display_name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {noteScope === 'member' ? (
+                    <>
+                      <label className="grid gap-1.5 text-sm">
+                        <span className="font-medium">Member</span>
+                        <select
+                          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 rounded-lg border px-3 outline-none focus-visible:ring-3"
+                          onChange={(event) =>
+                            setNoteMemberId(event.target.value)
+                          }
+                          value={noteMemberId}
+                        >
+                          {members.map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {member.display_name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                  <label className="grid gap-1.5 text-sm">
-                    <span className="font-medium">Area</span>
-                    <select
-                      className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 rounded-lg border px-3 outline-none disabled:opacity-50 focus-visible:ring-3"
-                      disabled={noteScope !== 'member'}
-                      onChange={(event) =>
-                        setNoteArea(
-                          event.target.value === 'instrumental'
-                            ? 'instrumental'
-                            : 'vocal',
-                        )
-                      }
-                      value={noteArea}
-                    >
-                      <option value="vocal">Vocal</option>
-                      <option value="instrumental">Instrumental</option>
-                    </select>
-                  </label>
+                      <label className="grid gap-1.5 text-sm">
+                        <span className="font-medium">Area</span>
+                        <select
+                          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 rounded-lg border px-3 outline-none focus-visible:ring-3"
+                          onChange={(event) =>
+                            setNoteArea(
+                              event.target.value === 'instrumental'
+                                ? 'instrumental'
+                                : 'vocal',
+                            )
+                          }
+                          value={noteArea}
+                        >
+                          <option value="vocal">Vocal</option>
+                          <option value="instrumental">Instrumental</option>
+                        </select>
+                      </label>
+                    </>
+                  ) : null}
                 </div>
 
                 <PartNoteEditor
@@ -723,7 +741,11 @@ export function SongPartAssignmentGrid({
           <TableBody>
             <TableRow>
               <TableCell className="w-px pr-8 align-top font-medium whitespace-nowrap">
-                ALL
+                <MemberCellLabel
+                  canAddNote={canManageBand}
+                  label="ALL"
+                  onAddNote={() => openNoteDialog({ scope: 'shared' })}
+                />
               </TableCell>
               <TableCell className="align-top" colSpan={2}>
                 <SharedDropTarget
@@ -741,7 +763,16 @@ export function SongPartAssignmentGrid({
               visibleMembers.map((member) => (
                 <TableRow key={member.id}>
                   <TableCell className="w-px pr-8 align-top font-medium whitespace-nowrap">
-                    {member.display_name}
+                    <MemberCellLabel
+                      canAddNote={canManageBand}
+                      label={member.display_name}
+                      onAddNote={() =>
+                        openNoteDialog({
+                          memberId: member.id,
+                          scope: 'member',
+                        })
+                      }
+                    />
                   </TableCell>
                   {areas.map(([area]) => (
                     <TableCell className="align-top" key={area}>
@@ -877,6 +908,34 @@ export function SongPartAssignmentGrid({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function MemberCellLabel({
+  canAddNote,
+  label,
+  onAddNote,
+}: {
+  canAddNote: boolean;
+  label: string;
+  onAddNote: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <span>{label}</span>
+      {canAddNote ? (
+        <Button
+          className="h-7 gap-1 rounded-md px-2 text-xs"
+          onClick={onAddNote}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <Plus className="size-3.5" />
+          note
+        </Button>
+      ) : null}
     </div>
   );
 }
