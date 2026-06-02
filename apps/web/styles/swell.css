@@ -103,6 +103,16 @@ a {
   backdrop-filter: blur(4px);
 }
 
+[data-slot='page'],
+[data-slot='page-content'] {
+  background-color: transparent;
+}
+
+[data-slot='page-header'] {
+  background: rgba(255, 255, 255, 0.58);
+  backdrop-filter: blur(6px);
+}
+
 [data-slot='sidebar-inner'] {
   border-color: var(--swell-line);
   background:

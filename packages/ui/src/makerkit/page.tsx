@@ -32,6 +32,7 @@ function PageWithSidebar(props: PageProps) {
 
   return (
     <div
+      data-slot="page"
       className={cn('flex min-w-0 flex-1 overflow-x-hidden', props.className)}
     >
       {Navigation}
@@ -43,6 +44,7 @@ function PageWithSidebar(props: PageProps) {
         }
       >
         <div
+          data-slot="page-content"
           className={'bg-background flex min-w-0 flex-1 flex-col px-4 lg:px-0'}
         >
           {Children}
@@ -74,6 +76,7 @@ function PageWithHeader(props: PageProps) {
 
   return (
     <div
+      data-slot="page"
       className={cn(
         'bg-background flex min-h-screen flex-1 flex-col',
         props.className,
@@ -83,6 +86,7 @@ function PageWithHeader(props: PageProps) {
         className={props.contentContainerClassName ?? 'flex flex-1 flex-col'}
       >
         <div
+          data-slot="page-header"
           className={cn(
             'bg-background/95 supports-[backdrop-filter]:bg-background/80 border-b',
             {
@@ -103,7 +107,10 @@ function PageWithHeader(props: PageProps) {
           </div>
         </div>
 
-        <div className="container mx-auto flex w-full flex-1 flex-col">
+        <div
+          data-slot="page-content"
+          className="container mx-auto flex w-full flex-1 flex-col"
+        >
           {Children}
         </div>
       </div>
