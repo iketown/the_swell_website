@@ -5,7 +5,10 @@ import { Sidebar, SidebarContent, SidebarHeader } from '@kit/ui/sidebar';
 import type { AccountModel } from '~/components/workspace-dropdown';
 import { WorkspaceDropdown } from '~/components/workspace-dropdown';
 import featureFlagsConfig from '~/config/feature-flags.config';
-import { getTeamAccountSidebarConfig } from '~/config/team-account-navigation.config';
+import {
+  getTeamAccountSidebarConfig,
+  isSimpleMemberExperience,
+} from '~/config/team-account-navigation.config';
 import { TeamAccountNotifications } from '~/home/[account]/_components/team-account-notifications';
 
 import { TeamAccountLayoutSidebarNavigation } from './team-account-layout-sidebar-navigation';
@@ -21,6 +24,7 @@ export function TeamAccountLayoutSidebar(props: {
 
   const config = getTeamAccountSidebarConfig(account, permissions);
   const collapsible = config.sidebarCollapsedStyle;
+  const simpleMemberExperience = isSimpleMemberExperience(permissions);
 
   return (
     <Sidebar variant="floating" collapsible={collapsible}>
@@ -30,9 +34,14 @@ export function TeamAccountLayoutSidebar(props: {
             user={user}
             accounts={accounts}
             selectedAccount={account}
+            simpleMemberExperience={simpleMemberExperience}
           />
 
-          <If condition={featureFlagsConfig.enableNotifications}>
+          <If
+            condition={
+              featureFlagsConfig.enableNotifications && !simpleMemberExperience
+            }
+          >
             <div className={'group-data-[collapsible=icon]:hidden'}>
               <TeamAccountNotifications
                 userId={user.id}

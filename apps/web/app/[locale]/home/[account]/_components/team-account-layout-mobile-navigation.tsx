@@ -22,7 +22,10 @@ import {
 } from '~/components/mobile-navigation-shared';
 import featureFlagsConfig from '~/config/feature-flags.config';
 import pathsConfig from '~/config/paths.config';
-import { getTeamAccountSidebarConfig } from '~/config/team-account-navigation.config';
+import {
+  getTeamAccountSidebarConfig,
+  isSimpleMemberExperience,
+} from '~/config/team-account-navigation.config';
 
 type Accounts = Array<{
   label: string | null;
@@ -44,6 +47,7 @@ export const TeamAccountLayoutMobileNavigation = (
 ) => {
   const router = useRouter();
   const signOut = useSignOut();
+  const simpleMemberExperience = isSimpleMemberExperience(props.permissions);
 
   return (
     <DropdownMenu>
@@ -52,32 +56,36 @@ export const TeamAccountLayoutMobileNavigation = (
       </DropdownMenuTrigger>
 
       <DropdownMenuContent className={'w-screen rounded-none'}>
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>
-            <Trans i18nKey={'common.yourAccounts'} />
-          </DropdownMenuLabel>
+        {!simpleMemberExperience ? (
+          <>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>
+                <Trans i18nKey={'common.yourAccounts'} />
+              </DropdownMenuLabel>
 
-          <AccountSelector
-            className={'w-full max-w-full'}
-            userId={props.userId}
-            accounts={props.accounts}
-            features={features}
-            selectedAccount={props.account}
-            onAccountChange={(value) => {
-              if (value) {
-                document.cookie = `last-selected-team=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
-              }
+              <AccountSelector
+                className={'w-full max-w-full'}
+                userId={props.userId}
+                accounts={props.accounts}
+                features={features}
+                selectedAccount={props.account}
+                onAccountChange={(value) => {
+                  if (value) {
+                    document.cookie = `last-selected-team=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
+                  }
 
-              const path = value
-                ? pathsConfig.app.accountHome.replace('[account]', value)
-                : pathsConfig.app.home;
+                  const path = value
+                    ? pathsConfig.app.accountHome.replace('[account]', value)
+                    : pathsConfig.app.home;
 
-              router.replace(path);
-            }}
-          />
-        </DropdownMenuGroup>
+                  router.replace(path);
+                }}
+              />
+            </DropdownMenuGroup>
 
-        <DropdownMenuSeparator />
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
 
         <DropdownMenuGroup>
           <MobileNavRouteLinks

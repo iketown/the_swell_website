@@ -52,6 +52,7 @@ interface WorkspaceDropdownProps {
   user: JWTUserData;
   accounts: AccountModel[];
   selectedAccount?: string;
+  simpleMemberExperience?: boolean;
   workspace?: {
     id: string | null;
     name: string | null;
@@ -63,6 +64,7 @@ export function WorkspaceDropdown({
   user,
   accounts,
   selectedAccount,
+  simpleMemberExperience = false,
   workspace,
 }: WorkspaceDropdownProps) {
   const router = useRouter();
@@ -165,7 +167,9 @@ export function WorkspaceDropdown({
                   <span className="max-w-md truncate">{currentLabel}</span>
                 </span>
 
-                <ChevronsUpDown className="ml-auto size-4 transition-opacity duration-300" />
+                <If condition={!simpleMemberExperience}>
+                  <ChevronsUpDown className="ml-auto size-4 transition-opacity duration-300" />
+                </If>
               </Button>
             }
           />
@@ -203,7 +207,11 @@ export function WorkspaceDropdown({
 
           <DropdownMenuSeparator />
 
-          <If condition={featuresFlagConfig.enableTeamAccounts}>
+          <If
+            condition={
+              featuresFlagConfig.enableTeamAccounts && !simpleMemberExperience
+            }
+          >
             <DropdownMenuSub>
               <DropdownMenuSubTrigger data-test="workspace-switch-submenu">
                 <Users className="size-4" />
@@ -298,21 +306,23 @@ export function WorkspaceDropdown({
             <DropdownMenuSeparator />
           </If>
 
-          <DropdownMenuItem
-            render={
-              <Link
-                className="flex items-center gap-x-2"
-                href={settingsPath}
-                data-test="workspace-settings-link"
-              >
-                <Settings className="size-4" />
+          <If condition={!simpleMemberExperience}>
+            <DropdownMenuItem
+              render={
+                <Link
+                  className="flex items-center gap-x-2"
+                  href={settingsPath}
+                  data-test="workspace-settings-link"
+                >
+                  <Settings className="size-4" />
 
-                <span>
-                  <Trans i18nKey={'common.routes.settings'} />
-                </span>
-              </Link>
-            }
-          />
+                  <span>
+                    <Trans i18nKey={'common.routes.settings'} />
+                  </span>
+                </Link>
+              }
+            />
+          </If>
 
           <If condition={user.is_superadmin}>
             <DropdownMenuItem
@@ -330,23 +340,33 @@ export function WorkspaceDropdown({
             />
           </If>
 
-          <DropdownMenuSeparator />
+          <If condition={!simpleMemberExperience}>
+            <DropdownMenuSeparator />
+          </If>
 
-          <DropdownMenuItem
-            render={
-              <Link className="flex items-center gap-x-2" href="/docs">
-                <MessageCircleQuestion className="size-4" />
+          <If condition={!simpleMemberExperience}>
+            <DropdownMenuItem
+              render={
+                <Link className="flex items-center gap-x-2" href="/docs">
+                  <MessageCircleQuestion className="size-4" />
 
-                <span>
-                  <Trans i18nKey={'common.documentation'} />
-                </span>
-              </Link>
+                  <span>
+                    <Trans i18nKey={'common.documentation'} />
+                  </span>
+                </Link>
+              }
+            />
+          </If>
+
+          <If condition={!simpleMemberExperience}>
+            <DropdownMenuSeparator />
+          </If>
+
+          <If
+            condition={
+              featuresFlagConfig.enableThemeToggle && !simpleMemberExperience
             }
-          />
-
-          <DropdownMenuSeparator />
-
-          <If condition={featuresFlagConfig.enableThemeToggle}>
+          >
             <SubMenuModeToggle />
 
             <DropdownMenuSeparator />
@@ -367,7 +387,11 @@ export function WorkspaceDropdown({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <If condition={featuresFlagConfig.enableTeamCreation}>
+      <If
+        condition={
+          featuresFlagConfig.enableTeamCreation && !simpleMemberExperience
+        }
+      >
         <CreateTeamAccountDialog
           isOpen={isCreatingTeam}
           setIsOpen={setIsCreatingTeam}

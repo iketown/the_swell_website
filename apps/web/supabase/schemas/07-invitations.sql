@@ -166,11 +166,14 @@ set
 declare
     target_account_id uuid;
     target_role varchar(50);
+    target_email varchar(255);
 begin
     select
         account_id,
-        role into target_account_id,
-        target_role
+        role,
+        email into target_account_id,
+        target_role,
+        target_email
     from
         public.invitations
     where
@@ -189,6 +192,22 @@ begin
         accept_invitation.user_id,
         target_account_id,
         target_role);
+
+    update public.members as band_member
+    set
+        user_id = accept_invitation.user_id,
+        account_role = target_role,
+        status = case
+            when band_member.status = 'candidate' then 'active'::public.member_status
+            else band_member.status
+        end
+    where
+        band_member.account_id = target_account_id
+        and lower(band_member.email) = lower(target_email)
+        and (
+            band_member.user_id is null
+            or band_member.user_id = accept_invitation.user_id
+        );
 
     delete from public.invitations
     where invite_token = token;

@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   CreditCard,
   FileAudio,
   LibraryBig,
@@ -19,12 +20,19 @@ type Permission =
   | 'access.manage'
   | 'band.members.read'
   | 'band.members.manage'
+  | 'billing.manage'
+  | 'calendar.read'
   | 'members.manage'
   | 'parts.read'
   | 'parts.manage'
   | 'roles.manage'
+  | 'settings.manage'
   | 'songs.read'
   | 'songs.manage';
+
+export function isSimpleMemberExperience(permissions: string[]) {
+  return !permissions.some((permission) => permission.endsWith('.manage'));
+}
 
 const getRoutes = (account: string, permissions?: string[]) => {
   const can = (permission: Permission) => {
@@ -39,13 +47,34 @@ const getRoutes = (account: string, permissions?: string[]) => {
     {
       label: 'common.routes.application',
       children: [
-        {
-          label: 'Band Home',
-          path: '/band',
-          Icon: <Music className={iconClasses} />,
-          highlightMatch: '/band$',
-        },
-      ],
+        canAny(['parts.read', 'parts.manage'])
+          ? {
+              label: 'Parts',
+              path: createPath('/home/[account]/parts', account),
+              Icon: <FileAudio className={iconClasses} />,
+            }
+          : undefined,
+        can('calendar.read')
+          ? {
+              label: 'Calendar',
+              path: createPath('/home/[account]/calendar', account),
+              Icon: <CalendarDays className={iconClasses} />,
+            }
+          : undefined,
+      ].filter(Boolean),
+    },
+    {
+      label: 'Management',
+      children: [
+        canAny(['band.members.manage', 'members.manage', 'songs.manage'])
+          ? {
+              label: 'Band Home',
+              path: createPath('/home/[account]/band', account),
+              Icon: <Music className={iconClasses} />,
+              highlightMatch: createPath('/home/[account]/band$', account),
+            }
+          : undefined,
+      ].filter(Boolean),
     },
     {
       label: 'Band',
@@ -53,27 +82,27 @@ const getRoutes = (account: string, permissions?: string[]) => {
         canAny(['band.members.read', 'band.members.manage'])
           ? {
               label: 'Band Members',
-              path: '/band/members',
+              path: createPath('/home/[account]/band/members', account),
               Icon: <Users className={iconClasses} />,
             }
           : undefined,
-        canAny(['songs.read', 'songs.manage'])
+        can('songs.manage')
           ? {
               label: 'Songs',
-              path: '/band/songs',
+              path: createPath('/home/[account]/band/songs', account),
               Icon: <Music className={iconClasses} />,
             }
           : undefined,
-        canAny(['songs.read', 'songs.manage'])
+        can('songs.manage')
           ? {
               label: 'Records',
               path: '/band/albums',
               Icon: <LibraryBig className={iconClasses} />,
             }
           : undefined,
-        canAny(['parts.read', 'parts.manage'])
+        can('parts.manage')
           ? {
-              label: 'Parts',
+              label: 'Parts Admin',
               path: '/band/parts',
               Icon: <FileAudio className={iconClasses} />,
             }
@@ -84,11 +113,13 @@ const getRoutes = (account: string, permissions?: string[]) => {
       label: 'common.routes.settings',
       collapsible: false,
       children: [
-        {
-          label: 'common.routes.settings',
-          path: createPath(pathsConfig.app.accountSettings, account),
-          Icon: <Settings className={iconClasses} />,
-        },
+        can('settings.manage')
+          ? {
+              label: 'common.routes.settings',
+              path: createPath(pathsConfig.app.accountSettings, account),
+              Icon: <Settings className={iconClasses} />,
+            }
+          : undefined,
         can('members.manage')
           ? {
               label: 'common.routes.members',
@@ -103,7 +134,7 @@ const getRoutes = (account: string, permissions?: string[]) => {
               Icon: <ShieldCheck className={iconClasses} />,
             }
           : undefined,
-        featureFlagsConfig.enableTeamAccountBilling
+        featureFlagsConfig.enableTeamAccountBilling && can('billing.manage')
           ? {
               label: 'common.routes.billing',
               path: createPath(pathsConfig.app.accountBilling, account),

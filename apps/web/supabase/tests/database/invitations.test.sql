@@ -118,6 +118,72 @@ select is_empty($$
     'no invitations should be listed'
 );
 
+select tests.create_supabase_user('invitee_link', 'invitee-link@makerkit.dev');
+
+set local role postgres;
+
+insert into public.members (
+    account_id,
+    status,
+    display_name,
+    email,
+    member_type,
+    instrument_capabilities,
+    vocal_capabilities
+)
+values (
+    makerkit.get_account_id_by_slug('makerkit'),
+    'candidate',
+    'Invitee Link',
+    'invitee-link@makerkit.dev',
+    'performer',
+    '{}'::public.instrument_slot[],
+    '{}'::public.vocal_slot[]
+);
+
+insert into public.invitations (
+    email,
+    invited_by,
+    account_id,
+    role,
+    invite_token
+)
+values (
+    'invitee-link@makerkit.dev',
+    tests.get_supabase_uid('owner'),
+    makerkit.get_account_id_by_slug('makerkit'),
+    'performer',
+    'invitee-link-token'
+);
+
+set local role service_role;
+
+select is(
+    public.accept_invitation('invitee-link-token', tests.get_supabase_uid('invitee_link')),
+    makerkit.get_account_id_by_slug('makerkit'),
+    'accepting an invitation returns the target account id'
+);
+
+set local role postgres;
+
+select row_eq(
+    $$ select user_id, account_role, status
+       from public.members
+       where account_id = makerkit.get_account_id_by_slug('makerkit')
+         and email = 'invitee-link@makerkit.dev' $$,
+    row(tests.get_supabase_uid('invitee_link'), 'performer'::varchar(50), 'active'::public.member_status),
+    'accepting an invitation links the matching band member row'
+);
+
+select isnt_empty(
+    $$ select 1
+       from public.accounts_memberships
+       where account_id = makerkit.get_account_id_by_slug('makerkit')
+         and user_id = tests.get_supabase_uid('invitee_link')
+         and account_role = 'performer' $$,
+    'accepting an invitation creates the account membership'
+);
+
 select * from finish();
 
 rollback;

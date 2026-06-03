@@ -42,7 +42,7 @@ async function SidebarLayout({ children }: React.PropsWithChildren) {
     redirect('/');
   }
 
-  await redirectIfTeamsOnly(workspace);
+  await redirectToAccountHome(workspace);
 
   return (
     <UserWorkspaceContextProvider value={workspace}>
@@ -66,7 +66,7 @@ async function SidebarLayout({ children }: React.PropsWithChildren) {
 async function HeaderLayout({ children }: React.PropsWithChildren) {
   const workspace = await loadUserWorkspace();
 
-  await redirectIfTeamsOnly(workspace);
+  await redirectToAccountHome(workspace);
 
   return (
     <UserWorkspaceContextProvider value={workspace}>
@@ -101,10 +101,10 @@ function MobileNavigation({
   );
 }
 
-async function redirectIfTeamsOnly(
+async function redirectToAccountHome(
   workspace: Awaited<ReturnType<typeof loadUserWorkspace>>,
 ) {
-  if (featuresFlagConfig.enableTeamsOnly) {
+  if (featuresFlagConfig.enableTeamsOnly || workspace.accounts.length > 0) {
     const firstTeam = workspace.accounts[0];
 
     if (firstTeam?.value) {
