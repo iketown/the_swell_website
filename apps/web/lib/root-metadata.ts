@@ -3,6 +3,11 @@ import { headers } from 'next/headers';
 
 import appConfig from '~/config/app.config';
 
+const faviconPath =
+  process.env.VERCEL_ENV === 'production'
+    ? '/images/favicon/favicon-production.png'
+    : '/images/favicon/favicon-local.png';
+
 /**
  * @name generateRootMetadata
  * @description Generates the root metadata for the application
@@ -31,7 +36,12 @@ export const generateRootMetadata = async (): Promise<Metadata> => {
       description: appConfig.description,
     },
     icons: {
-      icon: '/images/favicon/favicon.ico',
+      icon: [
+        {
+          url: faviconPath,
+          type: 'image/png',
+        },
+      ],
       apple: '/images/favicon/apple-touch-icon.png',
     },
   };
