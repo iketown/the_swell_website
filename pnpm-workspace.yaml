@@ -28,6 +28,8 @@ catalog:
   '@next/bundle-analyzer': 16.2.6
   '@nosecone/next': 1.4.0
   '@playwright/test': ^1.60.0
+  '@react-three/drei': ^10.7.7
+  '@react-three/fiber': ^9.6.1
   '@sentry/nextjs': 10.54.0
   '@stripe/react-stripe-js': 6.4.0
   '@stripe/stripe-js': 9.7.0
@@ -45,6 +47,7 @@ catalog:
   '@types/react': 19.2.15
   '@types/react-dom': 19.2.3
   '@types/sanitize-html': ^2.16.1
+  '@types/three': ^0.184.1
   babel-plugin-react-compiler: 1.0.0
   class-variance-authority: ^0.7.1
   clsx: ^2.1.1
@@ -54,7 +57,9 @@ catalog:
   date-fns: ^4.3.0
   dotenv: 17.4.2
   embla-carousel-react: ^8.6.0
+  gsap: ^3.15.0
   input-otp: ^1.4.2
+  leva: ^0.10.1
   lucide-react: 1.16.0
   nanoid: ^5.1.11
   next: 16.2.6
@@ -87,6 +92,7 @@ catalog:
   supabase: 2.101.0
   tailwind-merge: ^3.6.0
   tailwindcss: 4.3.0
+  three: ^0.184.0
   totp-generator: ^2.0.1
   tsup: 8.5.1
   turbo: 2.9.15
